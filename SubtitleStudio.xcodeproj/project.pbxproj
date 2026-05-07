@@ -1,0 +1,559 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		07399B91C20BD3666B50AE26 /* WorkflowSidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33419DDF71138DB160DD49F5 /* WorkflowSidebarView.swift */; };
+		07D562CE2FCDEEF2B4F42875 /* FFprobeMediaInspectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3828246835FEF257F0E62F4 /* FFprobeMediaInspectionService.swift */; };
+		08ABB441B9A93315FB74F0AD /* SubtitleKit in Frameworks */ = {isa = PBXBuildFile; productRef = B508AC190D03DE2F85823BF0 /* SubtitleKit */; };
+		0D8A701B9400286F0380D93C /* ProgressButton.swift in Sources */ = {isa = PBXBuildFile; fileRef = F64A1E872543E6008290C96A /* ProgressButton.swift */; };
+		1107786B3883F0FD74450F79 /* SubtitleDocumentIO.swift in Sources */ = {isa = PBXBuildFile; fileRef = 414279E04F944CA110A42C7D /* SubtitleDocumentIO.swift */; };
+		18AB55A3442865E261968544 /* StudioTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1AEB2483EC96C8B458B0C05 /* StudioTheme.swift */; };
+		1A05D59B1E6BE391E22461EB /* SubtitleAlignmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 346F1E204BF6575B74C85412 /* SubtitleAlignmentService.swift */; };
+		2636156E15D5F91A0043FCE0 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = FCAFC0367EC3207A587D1FBE /* README.md */; };
+		497473C51061153EADC3269E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94515D110509028343755D2F /* SettingsView.swift */; };
+		5311DD201B73A4EB2CBB99C1 /* WorkflowInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9236E5453D5FBD0C7AC145 /* WorkflowInspectorView.swift */; };
+		57C57A55E5FE3D61D2009437 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E78AD23646D8A45B1257D2 /* ContentView.swift */; };
+		64D52DB0700AAAF86724B829 /* MKVEmbeddingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4702B9547C51CF2902B975 /* MKVEmbeddingService.swift */; };
+		7348C4830F7D0EFC49260162 /* SubtitleWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795F4437595027129463AE2B /* SubtitleWorkspaceView.swift */; };
+		78CC3E550D8B9D954C84B164 /* SubtitleInventoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C6419FA41F966E25E9A57CC /* SubtitleInventoryService.swift */; };
+		885FE9B34D6A04B22C1C57DB /* TranslationProviders.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5B64B46D02288CF64B16C1B /* TranslationProviders.swift */; };
+		960FF5438FB7B2E874AA9146 /* CueTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99AFB4AF1EA04320D3D37827 /* CueTableView.swift */; };
+		99D856C2ABED0646A28562A7 /* SubtitleMergeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4658E9B82F957C22B2F6262A /* SubtitleMergeService.swift */; };
+		9F4F54064332449544E49407 /* ServiceProtocols.swift in Sources */ = {isa = PBXBuildFile; fileRef = 88A8461E3B9D02307EB47025 /* ServiceProtocols.swift */; };
+		BB865A30FDDA2FF34D069BEC /* SubtitleStudioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1998A2551C742B2CF5DF04A0 /* SubtitleStudioApp.swift */; };
+		BC9C42F411144C86B1A91925 /* KeychainCredentialStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = F487DEE7922369169C82CA0A /* KeychainCredentialStore.swift */; };
+		BE8400FE0F955DDA93B7B6E1 /* WorkflowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02A1F55BB52009BF48C7FC79 /* WorkflowViewModel.swift */; };
+		C04787CB5FEC9C544BBAA1D5 /* TranslationOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD3723823C5FE78A9ABDA78 /* TranslationOrchestrator.swift */; };
+		C5EC0344FC85A8A476E4196F /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE775A43F13CB7464C67158C /* AppEnvironment.swift */; };
+		E5B1CB5F624DF7DE89375661 /* OpenSubtitlesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04AA07EAF99F18AA5F8B5FB3 /* OpenSubtitlesClient.swift */; };
+		E88EF4E032D32B105196160A /* SubtitleQualityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C84886E0526FBC4F91B556D /* SubtitleQualityService.swift */; };
+		EEB70D66FFAF891ED2A2FFFF /* MediaToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 846739179ED3AD85648DDF31 /* MediaToolRegistry.swift */; };
+		F86F0AAC1A8CAD95CFA468DF /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 670766D1EFBB6E625B016F49 /* Models.swift */; };
+		FA991F498AF241748F5202C6 /* ProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 485ED433055F83837D71F2B3 /* ProcessRunner.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		02A1F55BB52009BF48C7FC79 /* WorkflowViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowViewModel.swift; sourceTree = "<group>"; };
+		04AA07EAF99F18AA5F8B5FB3 /* OpenSubtitlesClient.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSubtitlesClient.swift; sourceTree = "<group>"; };
+		1998A2551C742B2CF5DF04A0 /* SubtitleStudioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleStudioApp.swift; sourceTree = "<group>"; };
+		2A1524C3D2FB2244E0BFDEB8 /* BridgeSub.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeSub.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		33419DDF71138DB160DD49F5 /* WorkflowSidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowSidebarView.swift; sourceTree = "<group>"; };
+		346F1E204BF6575B74C85412 /* SubtitleAlignmentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleAlignmentService.swift; sourceTree = "<group>"; };
+		3AD3723823C5FE78A9ABDA78 /* TranslationOrchestrator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationOrchestrator.swift; sourceTree = "<group>"; };
+		414279E04F944CA110A42C7D /* SubtitleDocumentIO.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleDocumentIO.swift; sourceTree = "<group>"; };
+		4658E9B82F957C22B2F6262A /* SubtitleMergeService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleMergeService.swift; sourceTree = "<group>"; };
+		485ED433055F83837D71F2B3 /* ProcessRunner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessRunner.swift; sourceTree = "<group>"; };
+		4C6419FA41F966E25E9A57CC /* SubtitleInventoryService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleInventoryService.swift; sourceTree = "<group>"; };
+		5A4702B9547C51CF2902B975 /* MKVEmbeddingService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MKVEmbeddingService.swift; sourceTree = "<group>"; };
+		5C84886E0526FBC4F91B556D /* SubtitleQualityService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleQualityService.swift; sourceTree = "<group>"; };
+		670766D1EFBB6E625B016F49 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		6C9236E5453D5FBD0C7AC145 /* WorkflowInspectorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WorkflowInspectorView.swift; sourceTree = "<group>"; };
+		795F4437595027129463AE2B /* SubtitleWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleWorkspaceView.swift; sourceTree = "<group>"; };
+		846739179ED3AD85648DDF31 /* MediaToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaToolRegistry.swift; sourceTree = "<group>"; };
+		88A8461E3B9D02307EB47025 /* ServiceProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProtocols.swift; sourceTree = "<group>"; };
+		94515D110509028343755D2F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		99AFB4AF1EA04320D3D37827 /* CueTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueTableView.swift; sourceTree = "<group>"; };
+		A5B64B46D02288CF64B16C1B /* TranslationProviders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationProviders.swift; sourceTree = "<group>"; };
+		A8E78AD23646D8A45B1257D2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		CE775A43F13CB7464C67158C /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		F1AEB2483EC96C8B458B0C05 /* StudioTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioTheme.swift; sourceTree = "<group>"; };
+		F3828246835FEF257F0E62F4 /* FFprobeMediaInspectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFprobeMediaInspectionService.swift; sourceTree = "<group>"; };
+		F487DEE7922369169C82CA0A /* KeychainCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainCredentialStore.swift; sourceTree = "<group>"; };
+		F64A1E872543E6008290C96A /* ProgressButton.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProgressButton.swift; sourceTree = "<group>"; };
+		FCAFC0367EC3207A587D1FBE /* README.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = README.md; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		DFE8FF3520E28B717696F045 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				08ABB441B9A93315FB74F0AD /* SubtitleKit in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		0D4EC8F7D90E2448A5414774 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				2A1524C3D2FB2244E0BFDEB8 /* BridgeSub.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		51C3DE15261F698B6ED7DD5B /* Tools */ = {
+			isa = PBXGroup;
+			children = (
+				FCAFC0367EC3207A587D1FBE /* README.md */,
+			);
+			path = Tools;
+			sourceTree = "<group>";
+		};
+		5F8C903B8FA7CEE6AE5BA562 /* Media */ = {
+			isa = PBXGroup;
+			children = (
+				F3828246835FEF257F0E62F4 /* FFprobeMediaInspectionService.swift */,
+				846739179ED3AD85648DDF31 /* MediaToolRegistry.swift */,
+				485ED433055F83837D71F2B3 /* ProcessRunner.swift */,
+				414279E04F944CA110A42C7D /* SubtitleDocumentIO.swift */,
+			);
+			path = Media;
+			sourceTree = "<group>";
+		};
+		6F9B6C9C1F61DEA740A6E29D /* Infrastructure */ = {
+			isa = PBXGroup;
+			children = (
+				5F8C903B8FA7CEE6AE5BA562 /* Media */,
+				FBF8EEA40ACC1958C0576758 /* OpenSubtitles */,
+				D0BE652656039431BE19C402 /* Security */,
+				ABE7F3C0C717C346D0E96131 /* Translation */,
+			);
+			path = Infrastructure;
+			sourceTree = "<group>";
+		};
+		7AD6B3FF8EC0A4443C4688C7 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A8E78AD23646D8A45B1257D2 /* ContentView.swift */,
+				99AFB4AF1EA04320D3D37827 /* CueTableView.swift */,
+				F64A1E872543E6008290C96A /* ProgressButton.swift */,
+				94515D110509028343755D2F /* SettingsView.swift */,
+				F1AEB2483EC96C8B458B0C05 /* StudioTheme.swift */,
+				795F4437595027129463AE2B /* SubtitleWorkspaceView.swift */,
+				6C9236E5453D5FBD0C7AC145 /* WorkflowInspectorView.swift */,
+				33419DDF71138DB160DD49F5 /* WorkflowSidebarView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		7B1EDE6D8C4ACA940E7FF8F3 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				02A1F55BB52009BF48C7FC79 /* WorkflowViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		854D47B6905C1596743805FA = {
+			isa = PBXGroup;
+			children = (
+				E43AEA08B0668B1CC6775200 /* SubtitleStudio */,
+				0D4EC8F7D90E2448A5414774 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		ABE7F3C0C717C346D0E96131 /* Translation */ = {
+			isa = PBXGroup;
+			children = (
+				A5B64B46D02288CF64B16C1B /* TranslationProviders.swift */,
+			);
+			path = Translation;
+			sourceTree = "<group>";
+		};
+		B7F98515CCDB3759788E7AAC /* App */ = {
+			isa = PBXGroup;
+			children = (
+				CE775A43F13CB7464C67158C /* AppEnvironment.swift */,
+				1998A2551C742B2CF5DF04A0 /* SubtitleStudioApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		C498357E1FD08C08EAF2213A /* Domain */ = {
+			isa = PBXGroup;
+			children = (
+				670766D1EFBB6E625B016F49 /* Models.swift */,
+			);
+			path = Domain;
+			sourceTree = "<group>";
+		};
+		C65C063AC000A8E18D5E9B0A /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				5A4702B9547C51CF2902B975 /* MKVEmbeddingService.swift */,
+				88A8461E3B9D02307EB47025 /* ServiceProtocols.swift */,
+				346F1E204BF6575B74C85412 /* SubtitleAlignmentService.swift */,
+				4C6419FA41F966E25E9A57CC /* SubtitleInventoryService.swift */,
+				4658E9B82F957C22B2F6262A /* SubtitleMergeService.swift */,
+				5C84886E0526FBC4F91B556D /* SubtitleQualityService.swift */,
+				3AD3723823C5FE78A9ABDA78 /* TranslationOrchestrator.swift */,
+			);
+			path = Services;
+			sourceTree = "<group>";
+		};
+		D0BE652656039431BE19C402 /* Security */ = {
+			isa = PBXGroup;
+			children = (
+				F487DEE7922369169C82CA0A /* KeychainCredentialStore.swift */,
+			);
+			path = Security;
+			sourceTree = "<group>";
+		};
+		E43AEA08B0668B1CC6775200 /* SubtitleStudio */ = {
+			isa = PBXGroup;
+			children = (
+				B7F98515CCDB3759788E7AAC /* App */,
+				C498357E1FD08C08EAF2213A /* Domain */,
+				6F9B6C9C1F61DEA740A6E29D /* Infrastructure */,
+				C65C063AC000A8E18D5E9B0A /* Services */,
+				51C3DE15261F698B6ED7DD5B /* Tools */,
+				7B1EDE6D8C4ACA940E7FF8F3 /* ViewModels */,
+				7AD6B3FF8EC0A4443C4688C7 /* Views */,
+			);
+			path = SubtitleStudio;
+			sourceTree = "<group>";
+		};
+		FBF8EEA40ACC1958C0576758 /* OpenSubtitles */ = {
+			isa = PBXGroup;
+			children = (
+				04AA07EAF99F18AA5F8B5FB3 /* OpenSubtitlesClient.swift */,
+			);
+			path = OpenSubtitles;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		65F9567CD37166089A0A5D2D /* SubtitleStudio */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AACBFA74522B76256B42ECAB /* Build configuration list for PBXNativeTarget "SubtitleStudio" */;
+			buildPhases = (
+				90E4A341C8A525DD22F5A4FD /* Sources */,
+				3A616D69323FE01E33439411 /* Resources */,
+				DFE8FF3520E28B717696F045 /* Frameworks */,
+				39A463776C71AE28E5C974B9 /* Bundle Media Tools */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = SubtitleStudio;
+			packageProductDependencies = (
+				B508AC190D03DE2F85823BF0 /* SubtitleKit */,
+			);
+			productName = SubtitleStudio;
+			productReference = 2A1524C3D2FB2244E0BFDEB8 /* BridgeSub.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B9AFF241F659EBC5C86F59F2 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+					65F9567CD37166089A0A5D2D = {
+						DevelopmentTeam = "";
+						ProvisioningStyle = Automatic;
+					};
+				};
+			};
+			buildConfigurationList = A328BC60227FE9E21D99F27F /* Build configuration list for PBXProject "SubtitleStudio" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = 854D47B6905C1596743805FA;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				2B7D6DC6AE06B8BD95F77AD8 /* XCRemoteSwiftPackageReference "swift-subtitle-kit" */,
+			);
+			preferredProjectObjectVersion = 77;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				65F9567CD37166089A0A5D2D /* SubtitleStudio */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		3A616D69323FE01E33439411 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2636156E15D5F91A0043FCE0 /* README.md in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		39A463776C71AE28E5C974B9 /* Bundle Media Tools */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+			);
+			name = "Bundle Media Tools";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "set -euo pipefail\n\nTOOLS_DIR=\"${TARGET_BUILD_DIR}/${UNLOCALIZED_RESOURCES_FOLDER_PATH}/Tools\"\nREPO_TOOLS_DIR=\"${SRCROOT}/SubtitleStudio/Tools\"\n\ncopy_tool() {\n  local tool=\"$1\"\n  shift\n\n  if [ -x \"${REPO_TOOLS_DIR}/${tool}\" ]; then\n    if [ -d \"${TOOLS_DIR}\" ]; then\n      cp -f \"${REPO_TOOLS_DIR}/${tool}\" \"${TOOLS_DIR}/${tool}\"\n      chmod 755 \"${TOOLS_DIR}/${tool}\"\n    fi\n    return 0\n  fi\n\n  if [ -d \"${TOOLS_DIR}\" ]; then\n    for candidate in \"$@\"; do\n      if [ -x \"${candidate}\" ]; then\n        cp -f \"${candidate}\" \"${TOOLS_DIR}/${tool}\"\n        chmod 755 \"${TOOLS_DIR}/${tool}\"\n        return 0\n      fi\n    done\n  fi\n\n  return 0\n}\n\ncopy_tool \"ffprobe\" \"/opt/homebrew/bin/ffprobe\" \"/usr/local/bin/ffprobe\" \"/usr/bin/ffprobe\"\ncopy_tool \"ffmpeg\" \"/opt/homebrew/bin/ffmpeg\" \"/usr/local/bin/ffmpeg\" \"/usr/bin/ffmpeg\"\ncopy_tool \"mkvextract\" \"/opt/homebrew/bin/mkvextract\" \"/usr/local/bin/mkvextract\" \"/usr/bin/mkvextract\"\ncopy_tool \"mkvmerge\" \"/opt/homebrew/bin/mkvmerge\" \"/usr/local/bin/mkvmerge\" \"/usr/bin/mkvmerge\"\n\nif [ -n \"${EXPANDED_CODE_SIGN_IDENTITY:-}\" ] && [ -d \"${TOOLS_DIR}\" ]; then\n  for tool_path in \"${TOOLS_DIR}\"/*; do\n    if [ -x \"${tool_path}\" ]; then\n      /usr/bin/codesign --force --sign \"${EXPANDED_CODE_SIGN_IDENTITY}\" --timestamp=none \"${tool_path}\"\n    fi\n  done\nfi\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		90E4A341C8A525DD22F5A4FD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				C5EC0344FC85A8A476E4196F /* AppEnvironment.swift in Sources */,
+				57C57A55E5FE3D61D2009437 /* ContentView.swift in Sources */,
+				960FF5438FB7B2E874AA9146 /* CueTableView.swift in Sources */,
+				07D562CE2FCDEEF2B4F42875 /* FFprobeMediaInspectionService.swift in Sources */,
+				BC9C42F411144C86B1A91925 /* KeychainCredentialStore.swift in Sources */,
+				64D52DB0700AAAF86724B829 /* MKVEmbeddingService.swift in Sources */,
+				EEB70D66FFAF891ED2A2FFFF /* MediaToolRegistry.swift in Sources */,
+				F86F0AAC1A8CAD95CFA468DF /* Models.swift in Sources */,
+				E5B1CB5F624DF7DE89375661 /* OpenSubtitlesClient.swift in Sources */,
+				FA991F498AF241748F5202C6 /* ProcessRunner.swift in Sources */,
+				0D8A701B9400286F0380D93C /* ProgressButton.swift in Sources */,
+				9F4F54064332449544E49407 /* ServiceProtocols.swift in Sources */,
+				497473C51061153EADC3269E /* SettingsView.swift in Sources */,
+				18AB55A3442865E261968544 /* StudioTheme.swift in Sources */,
+				1A05D59B1E6BE391E22461EB /* SubtitleAlignmentService.swift in Sources */,
+				1107786B3883F0FD74450F79 /* SubtitleDocumentIO.swift in Sources */,
+				78CC3E550D8B9D954C84B164 /* SubtitleInventoryService.swift in Sources */,
+				99D856C2ABED0646A28562A7 /* SubtitleMergeService.swift in Sources */,
+				E88EF4E032D32B105196160A /* SubtitleQualityService.swift in Sources */,
+				BB865A30FDDA2FF34D069BEC /* SubtitleStudioApp.swift in Sources */,
+				7348C4830F7D0EFC49260162 /* SubtitleWorkspaceView.swift in Sources */,
+				C04787CB5FEC9C544BBAA1D5 /* TranslationOrchestrator.swift in Sources */,
+				885FE9B34D6A04B22C1C57DB /* TranslationProviders.swift in Sources */,
+				5311DD201B73A4EB2CBB99C1 /* WorkflowInspectorView.swift in Sources */,
+				07399B91C20BD3666B50AE26 /* WorkflowSidebarView.swift in Sources */,
+				BE8400FE0F955DDA93B7B6E1 /* WorkflowViewModel.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		5BD1F75516A60E6C014F2691 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		6EED0FD10EF89ED24A471CE1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		77DD6A92A41E8F72BDF3C55A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xiaodong.BridgeSub;
+				PRODUCT_MODULE_NAME = SubtitleStudio;
+				PRODUCT_NAME = BridgeSub;
+				SDKROOT = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		876DAB67C69C1F9E47EF6FE9 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.video";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.xiaodong.BridgeSub;
+				PRODUCT_MODULE_NAME = SubtitleStudio;
+				PRODUCT_NAME = BridgeSub;
+				SDKROOT = macosx;
+				SUPPORTS_MACCATALYST = NO;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A328BC60227FE9E21D99F27F /* Build configuration list for PBXProject "SubtitleStudio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				6EED0FD10EF89ED24A471CE1 /* Debug */,
+				5BD1F75516A60E6C014F2691 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		AACBFA74522B76256B42ECAB /* Build configuration list for PBXNativeTarget "SubtitleStudio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				77DD6A92A41E8F72BDF3C55A /* Debug */,
+				876DAB67C69C1F9E47EF6FE9 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		2B7D6DC6AE06B8BD95F77AD8 /* XCRemoteSwiftPackageReference "swift-subtitle-kit" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/dioKaratzas/swift-subtitle-kit.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.0.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		B508AC190D03DE2F85823BF0 /* SubtitleKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 2B7D6DC6AE06B8BD95F77AD8 /* XCRemoteSwiftPackageReference "swift-subtitle-kit" */;
+			productName = SubtitleKit;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = B9AFF241F659EBC5C86F59F2 /* Project object */;
+}

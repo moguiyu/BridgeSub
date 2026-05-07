@@ -1,0 +1,15 @@
+{
+  "originHash" : "0af807167f22c89f846927795840ea7f1b8f4dfa1318586768d3a54268a63c2f",
+  "pins" : [
+    {
+      "identity" : "swift-subtitle-kit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/dioKaratzas/swift-subtitle-kit.git",
+      "state" : {
+        "revision" : "0ae386087935efdf6b8c03b65a447f2ed27d4f90",
+        "version" : "1.0.3"
+      }
+    }
+  ],
+  "version" : 3
+}
