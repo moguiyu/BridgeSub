@@ -616,12 +616,20 @@ struct SubtitleWorkspaceView: View {
         VStack(alignment: .leading, spacing: StudioSpacing.xs) {
             HStack(alignment: .top) {
                 VStack(alignment: .leading, spacing: StudioSpacing.xs) {
-                    Text(candidate.sourceLabel)
-                        .font(.caption.weight(.medium))
+                    HStack(spacing: 4) {
+                        Text(candidate.sourceLabel)
+                            .font(.caption.weight(.medium))
+                        candidateKindBadge(candidate.kind)
+                    }
                     if let profile = candidate.languageProfile {
                         Text(profile.summary)
                             .font(.caption2)
                             .foregroundStyle(profile.reviewRequired ? .orange : .secondary)
+                    }
+                    if let path = candidate.relativePath, path.contains("/") {
+                        Text((path as NSString).deletingLastPathComponent + "/")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -813,6 +821,24 @@ struct SubtitleWorkspaceView: View {
 
     private var searchMessageColor: Color {
         currentCard.searchResults.isEmpty ? .secondary : .orange
+    }
+
+    @ViewBuilder
+    private func candidateKindBadge(_ kind: CueKind?) -> some View {
+        switch kind {
+        case .sdh:         kindBadge("SDH", color: .orange)
+        case .forcedNarrative: kindBadge("Forced", color: .purple)
+        case .ad:          kindBadge("Ad", color: .red)
+        default:           EmptyView()
+        }
+    }
+
+    private func kindBadge(_ label: String, color: Color) -> some View {
+        Text(label)
+            .font(.caption2)
+            .padding(.horizontal, 4)
+            .background(color.opacity(0.2))
+            .clipShape(RoundedRectangle(cornerRadius: 3))
     }
 
     private func color(for severity: CandidateQualitySeverity) -> Color {

@@ -40,6 +40,108 @@ enum SubtitleOriginKind: String, Codable, CaseIterable, Identifiable, Sendable {
     }
 }
 
+enum CueKind: String, Codable, Sendable {
+    case dialogue
+    case sdh
+    case forcedNarrative
+    case ad
+    case unknown
+}
+
+struct CueVADScore: Equatable, Sendable {
+    let cueID: Int
+    let speechOverlapRatio: Double
+    let startDeltaMilliseconds: Int?
+    let endDeltaMilliseconds: Int?
+    let hasSpeech: Bool
+
+    static let none = CueVADScore(
+        cueID: -1, speechOverlapRatio: 0,
+        startDeltaMilliseconds: nil, endDeltaMilliseconds: nil,
+        hasSpeech: false
+    )
+}
+
+struct VADSpeechSegment: Equatable, Sendable {
+    let startMilliseconds: Int
+    let endMilliseconds: Int
+    let confidence: Double
+}
+
+struct VADArbitrationResult: Equatable, Sendable {
+    let sourceScores: [Int: CueVADScore]
+    let targetScores: [Int: CueVADScore]
+    let speechSegments: [VADSpeechSegment]
+    let elapsedSeconds: TimeInterval
+
+    var sourceAverageScore: Double {
+        guard !sourceScores.isEmpty else { return 0 }
+        return sourceScores.values.map(\.speechOverlapRatio).reduce(0, +) / Double(sourceScores.count)
+    }
+
+    var targetAverageScore: Double {
+        guard !targetScores.isEmpty else { return 0 }
+        return targetScores.values.map(\.speechOverlapRatio).reduce(0, +) / Double(targetScores.count)
+    }
+
+    func masterSide(for sourceCueID: Int, targetCueID: Int?) -> VADMasterSide {
+        let s = sourceScores[sourceCueID]?.speechOverlapRatio ?? 0
+        let t = targetCueID.flatMap { targetScores[$0]?.speechOverlapRatio } ?? 0
+        if s > t + 0.15 { return .source }
+        if t > s + 0.15 { return .target }
+        return sourceAverageScore >= targetAverageScore ? .source : .target
+    }
+
+    static let empty = VADArbitrationResult(
+        sourceScores: [:], targetScores: [:],
+        speechSegments: [], elapsedSeconds: 0
+    )
+}
+
+enum VADMasterSide: String, Sendable {
+    case source
+    case target
+}
+
+struct AudioTrackCandidate: Identifiable, Equatable, Sendable {
+    let id: Int
+    let index: Int
+    let codecName: String
+    let languageCode: String?
+    let resolvedLanguage: LanguageOption?
+    let channels: Int
+    let bitrate: Int?
+    let isRecommended: Bool
+
+    var displayLabel: String {
+        let lang = resolvedLanguage?.displayName ?? (languageCode ?? "Unknown")
+        let chan = channels == 1 ? "mono" : (channels == 2 ? "stereo" : "\(channels)ch")
+        var label = "\(lang) · \(codecName) · \(chan)"
+        if isRecommended { label += " · Recommended" }
+        return label
+    }
+
+    static func recommended(from streams: [AudioStream], preferredLanguage: LanguageOption?) -> AudioTrackCandidate? {
+        let scored = streams.map { stream in
+            var score = 0
+            if stream.resolvedLanguage == preferredLanguage { score += 100 }
+            let c = stream.codecName.lowercased()
+            if c.contains("ac3") || c.contains("eac3") { score += 50 }
+            else if c.contains("aac") { score += 40 }
+            else if c.contains("truehd") || c.contains("dts-hd") { score += 10 }
+            if stream.channels <= 2 { score += 20 }
+            return (stream, score)
+        }
+        guard let best = scored.max(by: { $0.1 < $1.1 }), best.1 > 0 else { return nil }
+        let s = best.0
+        return AudioTrackCandidate(
+            id: s.id, index: s.index, codecName: s.codecName,
+            languageCode: s.languageCode, resolvedLanguage: s.resolvedLanguage,
+            channels: s.channels, bitrate: s.bitrate, isRecommended: true
+        )
+    }
+}
+
 enum RemoteMediaPolicy {
     static let largeRemoteMKVThresholdBytes = 8 * 1_024 * 1_024 * 1_024
 
@@ -1211,6 +1313,8 @@ struct SubtitleCandidate: Identifiable, Equatable, Sendable {
     let embeddedTrack: EmbeddedSubtitleTrack?
     let qualitySignals: [CandidateQualitySignal]
     let languageProfile: SubtitleLanguageProfile?
+    let kind: CueKind?
+    let relativePath: String?
 
     init(
         id: String,
@@ -1225,7 +1329,9 @@ struct SubtitleCandidate: Identifiable, Equatable, Sendable {
         fileURL: URL?,
         embeddedTrack: EmbeddedSubtitleTrack?,
         qualitySignals: [CandidateQualitySignal] = [],
-        languageProfile: SubtitleLanguageProfile? = nil
+        languageProfile: SubtitleLanguageProfile? = nil,
+        kind: CueKind? = nil,
+        relativePath: String? = nil
     ) {
         self.id = id
         self.language = language
@@ -1240,10 +1346,25 @@ struct SubtitleCandidate: Identifiable, Equatable, Sendable {
         self.embeddedTrack = embeddedTrack
         self.qualitySignals = qualitySignals
         self.languageProfile = languageProfile
+        self.kind = kind
+        self.relativePath = relativePath
     }
 
     var displayTitle: String {
-        "\(sourceLabel) · \(origin.title)"
+        var title = "\(sourceLabel) · \(origin.title)"
+        if let kind {
+            switch kind {
+            case .sdh: title += " [SDH]"
+            case .forcedNarrative: title += " [Forced]"
+            case .ad: title += " [Ad]"
+            case .dialogue, .unknown: break
+            }
+        }
+        if let relativePath, relativePath.contains("/") {
+            let folder = (relativePath as NSString).deletingLastPathComponent
+            title += " · \(folder)/"
+        }
+        return title
     }
 
     var translationSourceLabel: String {

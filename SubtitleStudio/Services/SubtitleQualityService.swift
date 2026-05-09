@@ -6,9 +6,10 @@ struct SubtitleQualityService: SubtitleQualityScoringServicing {
     func evaluate(
         source: SubtitleDocument,
         candidate: SubtitleDocument,
-        targetLanguage: LanguageOption
+        targetLanguage: LanguageOption,
+        alignmentReport: AlignmentReport? = nil
     ) -> SubtitleQualityReport {
-        let alignmentReport = aligner.align(source: source, target: candidate)
+        let alignmentReport = alignmentReport ?? aligner.align(source: source, target: candidate)
 
         guard !source.cues.isEmpty, !candidate.cues.isEmpty else {
             return SubtitleQualityReport(

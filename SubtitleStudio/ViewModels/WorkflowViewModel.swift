@@ -62,6 +62,11 @@ final class WorkflowViewModel {
     var lastError: String?
     var lastSavedSidecarURL: URL?
     var lastEmbeddedOutputURL: URL?
+    var isVADAnalysisEnabled = true
+    var selectedAudioTrackIndex: Int = 0
+    var isVADAnalysisRunning = false
+    var lastVADResult: VADArbitrationResult?
+    var autoVADReminder = false
 
     var providerSettings: ProviderSettings {
         ProviderSettings.load()
@@ -75,10 +80,10 @@ final class WorkflowViewModel {
     private var loadedSelectionKeys: [String?]
     private var currentResolutionTask: Task<Void, Never>?
     private var mergePreviewTask: Task<Void, Never>?
-    private var qualityEvaluationTask: Task<Void, Never>?
     private var currentResolutionTaskToken = UUID()
     private var mergePreviewTaskToken = UUID()
-    private var qualityEvaluationTaskToken = UUID()
+    private var mergeEventStream: AsyncStream<MergeEvent>?
+    private var qualityEventStream: AsyncStream<QualityEvent>?
     private var translationTask: Task<Void, Never>?
     private var activeTranslationCardIndex: Int?
     private var mergedDocumentCache: [String: MergedSubtitleDocument] = [:]
@@ -356,11 +361,46 @@ final class WorkflowViewModel {
     }
 
     func exportFormatChanged() {
-        mergedDocumentCache.removeAll()
-        mergedDocument = nil
-        guard let doc0 = cards[0].loadedDocument, let doc1 = cards[1].loadedDocument else { return }
-        publishInitialBilingualPreview(source: doc0, target: doc1)
-        startBackgroundMerge(source: doc0, target: doc1, cacheKey: currentMergeCacheKey)
+        status("Export format changed to \(exportFormat.fileExtension)")
+    }
+
+    func analyzeWithVADAndRerunMerge() async {
+        guard let videoURL = selectedVideoURL,
+              let sourceDoc = cards[0].loadedDocument,
+              let targetDoc = cards[1].loadedDocument else {
+            fail("Load subtitles for both cards first.")
+            return
+        }
+
+        autoVADReminder = false
+        isVADAnalysisRunning = true
+        status("Analyzing audio with voice detection...")
+        defer { isVADAnalysisRunning = false }
+
+        do {
+            let vadResult = try await environment.vadService.analyze(
+                videoURL: videoURL,
+                source: sourceDoc,
+                target: targetDoc,
+                audioTrackIndex: selectedAudioTrackIndex
+            )
+            lastVADResult = vadResult
+
+            let s = String(format: "%.0f%%", vadResult.sourceAverageScore * 100)
+            let t = String(format: "%.0f%%", vadResult.targetAverageScore * 100)
+            let sec = String(format: "%.1f", vadResult.elapsedSeconds)
+            status("VAD: source=\(s) target=\(t) in \(sec)s. Rerunning merge with voice data.")
+
+            mergedDocumentCache.removeAll()
+            mergedDocument = nil
+            previewState = PreviewMergeState()
+            startBackgroundMerge(
+                source: sourceDoc, target: targetDoc,
+                cacheKey: currentMergeCacheKey, vadResult: vadResult
+            )
+        } catch {
+            fail(error, context: "VAD analysis")
+        }
     }
 
     func saveSidecar() {
@@ -687,23 +727,23 @@ final class WorkflowViewModel {
 
         if isDraftPreview {
             mergePreviewTask?.cancel()
-            qualityEvaluationTask?.cancel()
             mergedDocument = nil
             qualityReport = nil
             isQualityEvaluationPending = false
         }
 
         if let sourceDocument, let targetDocument {
-            publishInitialBilingualPreview(
-                source: sourceDocument,
-                target: targetDocument,
-                usesSourceDraft: usesSourceDraft,
-                usesTargetDraft: usesTargetDraft,
-                preserveLoadedCount: preserveLoadedCount
-            )
+            let cacheKey = currentMergeCacheKey
+            previewState.isBuildingFullMerge = !isDraftPreview
+            previewMode = .bilingual
+            phase = .previewReady
             if !isDraftPreview {
-                startBackgroundMerge(source: sourceDocument, target: targetDocument, cacheKey: currentMergeCacheKey)
-                startBackgroundQualityEvaluation(source: sourceDocument, target: targetDocument)
+                startBackgroundMerge(
+                    source: sourceDocument,
+                    target: targetDocument,
+                    cacheKey: cacheKey,
+                    vadResult: lastVADResult
+                )
             }
         } else if let sourceDocument {
             publishSingleDocumentPreview(
@@ -844,6 +884,54 @@ final class WorkflowViewModel {
         return "\(label): \(report.notes.first ?? "The selected subtitle pairing may be unreliable.")"
     }
 
+    var vadHasResult: Bool { lastVADResult != nil }
+
+    var vadSourceScoreLabel: String {
+        lastVADResult.map { formatVADScore($0.sourceAverageScore) } ?? "n/a"
+    }
+
+    var vadTargetScoreLabel: String {
+        lastVADResult.map { formatVADScore($0.targetAverageScore) } ?? "n/a"
+    }
+
+    private func formatVADScore(_ score: Double) -> String {
+        String(format: "%.0f%%", score * 100)
+    }
+
+    var vadMasterSideLabel: String? {
+        guard let r = lastVADResult else { return nil }
+        return r.sourceAverageScore >= r.targetAverageScore ? "Card 1 (source)" : "Card 2 (target)"
+    }
+
+    var vadElapsedLabel: String? {
+        guard let r = lastVADResult else { return nil }
+        return String(format: "%.1fs", r.elapsedSeconds)
+    }
+
+    var vadSpeechSegmentCount: Int {
+        lastVADResult?.speechSegments.count ?? 0
+    }
+
+    var showVADReminder: Bool {
+        !isVADAnalysisRunning && lastVADResult == nil
+            && qualityReport.map({ $0.alignmentReport.matchedCueRatio < 0.70 }) ?? false
+            && inspectionReport?.audioStreams.isEmpty == false
+    }
+
+    var availableAudioTracks: [AudioTrackCandidate] {
+        guard let streams = inspectionReport?.audioStreams, !streams.isEmpty else { return [] }
+        let sourceLang = cards[0].loadedDocument?.language
+        let recommended = AudioTrackCandidate.recommended(from: streams, preferredLanguage: sourceLang)
+        return streams.map { stream in
+            AudioTrackCandidate(
+                id: stream.id, index: stream.index, codecName: stream.codecName,
+                languageCode: stream.languageCode, resolvedLanguage: stream.resolvedLanguage,
+                channels: stream.channels, bitrate: stream.bitrate,
+                isRecommended: stream.index == (recommended?.index ?? -1)
+            )
+        }
+    }
+
     func selectionSummary(forCardIndex cardIndex: Int) -> String {
         if let candidate = selectedCandidate(forCardIndex: cardIndex) {
             return candidate.displayTitle
@@ -883,7 +971,6 @@ final class WorkflowViewModel {
     private func resolveCurrentSelections() {
         currentResolutionTask?.cancel()
         mergePreviewTask?.cancel()
-        qualityEvaluationTask?.cancel()
         let taskToken = UUID()
         currentResolutionTaskToken = taskToken
         currentResolutionTask = Task { [weak self] in
@@ -991,56 +1078,6 @@ final class WorkflowViewModel {
         }
     }
 
-    private func publishInitialBilingualPreview(
-        source: SubtitleDocument,
-        target: SubtitleDocument,
-        usesSourceDraft: Bool = false,
-        usesTargetDraft: Bool = false,
-        preserveLoadedCount: Bool = false
-    ) {
-        let isDraftPreview = usesSourceDraft || usesTargetDraft
-        let cachedMergedDocument = isDraftPreview ? nil : mergedDocumentCache[currentMergeCacheKey]
-        let initialCount: Int
-        let initialCues: [BilingualCue]
-        let fullCues: [BilingualCue]?
-        let isBuildingFullMerge: Bool
-        let requestedInitialCount = preserveLoadedCount
-            ? max(Self.previewPageSize, previewState.loadedCueCount)
-            : Self.previewPageSize
-
-        if let cachedMergedDocument {
-            let exactCues = cachedMergedDocument.cues
-            initialCount = min(requestedInitialCount, exactCues.count)
-            initialCues = Array(exactCues.prefix(initialCount))
-            fullCues = exactCues
-            isBuildingFullMerge = false
-            mergedDocument = cachedMergedDocument
-        } else {
-            initialCues = buildFastMergedPage(source: source, target: target, startIndex: 0, pageSize: min(requestedInitialCount, max(source.cues.count, target.cues.count)))
-            initialCount = initialCues.count
-            fullCues = nil
-            isBuildingFullMerge = !isDraftPreview
-            if isDraftPreview {
-                mergedDocument = nil
-            }
-        }
-
-        previewState = PreviewMergeState(
-            displayedCues: initialCues,
-            fullCues: fullCues,
-            totalCueCount: max(source.cues.count, target.cues.count),
-            loadedCueCount: initialCount,
-            lowConfidenceCount: isDraftPreview ? 0 : lowConfidenceCount(in: initialCues),
-            sourceDocument: source,
-            targetDocument: target,
-            isBuildingFullMerge: isBuildingFullMerge,
-            usesSourceDraft: usesSourceDraft,
-            usesTargetDraft: usesTargetDraft
-        )
-        previewMode = .bilingual
-        phase = .previewReady
-    }
-
     private func publishSingleDocumentPreview(
         document: SubtitleDocument,
         renderAsSource: Bool,
@@ -1067,66 +1104,102 @@ final class WorkflowViewModel {
         phase = .previewReady
     }
 
-    private func startBackgroundMerge(source: SubtitleDocument, target: SubtitleDocument, cacheKey: String) {
-        guard previewState.fullCues == nil, !previewState.isDraftPreview else { return }
+    private func startBackgroundMerge(
+        source: SubtitleDocument,
+        target: SubtitleDocument,
+        cacheKey: String,
+        vadResult: VADArbitrationResult? = nil
+    ) {
+        // Serve instantly from cache when available
+        if let cached = mergedDocumentCache[cacheKey] {
+            mergedDocument = cached
+            previewState.fullCues = cached.cues
+            previewState.displayedCues = Array(cached.cues.prefix(Self.previewPageSize))
+            previewState.totalCueCount = cached.cues.count
+            previewState.loadedCueCount = min(Self.previewPageSize, cached.cues.count)
+            previewState.isBuildingFullMerge = false
+            previewMode = .bilingual
+            phase = .previewReady
+            return
+        }
 
         mergePreviewTask?.cancel()
-        let taskToken = UUID()
-        mergePreviewTaskToken = taskToken
+        let token = UUID()
+        mergePreviewTaskToken = token
+        isQualityEvaluationPending = true
+
         mergePreviewTask = Task { [weak self] in
             guard let self else { return }
 
-            let merged = await Task.detached { [mergeService = self.environment.mergeService, exportFormat = self.exportFormat] in
-                mergeService.merge(source: source, target: target, outputFormat: exportFormat)
-            }.value
-
-            guard !Task.isCancelled else { return }
-
-            await MainActor.run {
-                guard self.mergePreviewTaskToken == taskToken else { return }
-                guard self.currentMergeCacheKey == cacheKey else { return }
-                self.mergedDocument = merged
-                self.mergedDocumentCache[cacheKey] = merged
-                let exactCues = merged.cues
-                let desiredLoadedCount = max(self.previewState.loadedCueCount, min(Self.previewPageSize, exactCues.count))
-                self.previewState.fullCues = exactCues
-                self.previewState.totalCueCount = exactCues.count
-                self.previewState.loadedCueCount = min(desiredLoadedCount, exactCues.count)
-                self.previewState.displayedCues = Array(exactCues.prefix(self.previewState.loadedCueCount))
-                self.previewState.lowConfidenceCount = self.lowConfidenceCount(in: self.previewState.displayedCues)
-                self.previewState.isBuildingFullMerge = false
-                self.previewState.usesSourceDraft = false
-                self.previewState.usesTargetDraft = false
-                self.previewMode = .bilingual
-                self.phase = .previewReady
-                self.mergePreviewTask = nil
+            // pipeline.run() is actor-isolated — call with await from this async context
+            let pipeline = await self.environment.pipeline
+            let outputFormat = await self.exportFormat
+            let (mergeStream, qualityStream) = await pipeline.run(
+                source: source,
+                target: target,
+                vadResult: vadResult,
+                outputFormat: outputFormat
+            )
+            await MainActor.run { [weak self] in
+                self?.mergeEventStream = mergeStream
+                self?.qualityEventStream = qualityStream
             }
-        }
-    }
 
-    private func startBackgroundQualityEvaluation(source: SubtitleDocument, target: SubtitleDocument) {
-        qualityEvaluationTask?.cancel()
-        isQualityEvaluationPending = true
+            var accumulatedCues: [BilingualCue] = []
 
-        let selectionKey = currentMergeCacheKey
-        let taskToken = UUID()
-        qualityEvaluationTaskToken = taskToken
-        qualityEvaluationTask = Task { [weak self] in
-            guard let self else { return }
+            for await event in mergeStream {
+                guard await self.mergePreviewTaskToken == token else { return }
+                await MainActor.run {
+                    switch event {
+                    case .alignmentComplete:
+                        break
 
-            let report = await Task.detached { [qualityService = self.environment.qualityService] in
-                qualityService.evaluate(source: source, candidate: target, targetLanguage: target.language)
-            }.value
+                    case .segmentBuilt(let segment):
+                        let side = segment.isSourceMaster ? "source" : "target"
+                        self.status("Segment — master: \(side)")
 
-            guard !Task.isCancelled else { return }
+                    case .pageReady(let cues, let page, _):
+                        accumulatedCues.append(contentsOf: cues)
+                        self.previewState.fullCues = accumulatedCues
+                        if page <= 1 {
+                            self.previewState.displayedCues = Array(accumulatedCues.prefix(Self.previewPageSize))
+                            self.previewState.loadedCueCount = self.previewState.displayedCues.count
+                        }
 
-            await MainActor.run {
-                guard self.qualityEvaluationTaskToken == taskToken else { return }
-                guard self.currentMergeCacheKey == selectionKey else { return }
-                self.qualityReport = report
-                self.isQualityEvaluationPending = false
-                self.status("Quality gate for Card 2 (\(self.cards[1].language.displayName)) is \(report.decision.rawValue).")
-                self.qualityEvaluationTask = nil
+                    case .mergeComplete(let document):
+                        self.mergedDocument = document
+                        self.mergedDocumentCache[cacheKey] = document
+                        self.previewState.fullCues = document.cues
+                        self.previewState.totalCueCount = document.cues.count
+                        self.previewState.loadedCueCount = min(
+                            max(self.previewState.loadedCueCount, Self.previewPageSize),
+                            document.cues.count
+                        )
+                        self.previewState.displayedCues = Array(
+                            document.cues.prefix(self.previewState.loadedCueCount)
+                        )
+                        self.previewState.lowConfidenceCount = self.lowConfidenceCount(
+                            in: self.previewState.displayedCues
+                        )
+                        self.previewState.isBuildingFullMerge = false
+                        self.previewMode = .bilingual
+                        self.phase = .previewReady
+                        self.mergePreviewTask = nil
+                    }
+                }
+            }
+
+            for await event in qualityStream {
+                guard await self.mergePreviewTaskToken == token else { return }
+                await MainActor.run {
+                    if case .evaluationComplete(let report) = event {
+                        self.qualityReport = report
+                        self.isQualityEvaluationPending = false
+                        self.status(
+                            "Quality gate for Card 2 (\(self.cards[1].language.displayName)) is \(report.decision.rawValue)."
+                        )
+                    }
+                }
             }
         }
     }
@@ -1141,8 +1214,6 @@ final class WorkflowViewModel {
         if let fullCues = previewState.fullCues {
             let endIndex = min(startIndex + nextPageSize, fullCues.count)
             nextPage = Array(fullCues[startIndex..<endIndex])
-        } else if let sourceDocument = previewState.sourceDocument, let targetDocument = previewState.targetDocument {
-            nextPage = buildFastMergedPage(source: sourceDocument, target: targetDocument, startIndex: startIndex, pageSize: nextPageSize)
         } else if let sourceDocument = previewState.sourceDocument {
             nextPage = buildSingleDocumentPage(document: sourceDocument, startIndex: startIndex, pageSize: nextPageSize, renderAsSource: true)
         } else if let targetDocument = previewState.targetDocument {
@@ -1154,33 +1225,6 @@ final class WorkflowViewModel {
         previewState.displayedCues.append(contentsOf: nextPage)
         previewState.loadedCueCount = previewState.displayedCues.count
         previewState.lowConfidenceCount = previewState.isDraftPreview ? 0 : lowConfidenceCount(in: previewState.displayedCues)
-    }
-
-    private func buildFastMergedPage(
-        source: SubtitleDocument,
-        target: SubtitleDocument,
-        startIndex: Int,
-        pageSize: Int
-    ) -> [BilingualCue] {
-        guard startIndex < source.cues.count else { return [] }
-
-        let endIndex = min(startIndex + pageSize, source.cues.count)
-        let targetCues = target.cues
-
-        return source.cues[startIndex..<endIndex].enumerated().map { offset, sourceCue in
-            let absoluteIndex = startIndex + offset
-            let match = fastMatchTargetCue(for: sourceCue, sourceIndex: absoluteIndex, sourceCount: source.cues.count, targetCues: targetCues)
-            let targetCue = match?.cue
-            return BilingualCue(
-                id: sourceCue.id,
-                startMilliseconds: sourceCue.startMilliseconds,
-                endMilliseconds: sourceCue.endMilliseconds,
-                sourceText: sourceCue.plainText.normalizedSubtitleText,
-                targetText: targetCue?.plainText.normalizedSubtitleText ?? "",
-                alignmentConfidence: match?.confidence ?? 0,
-                alignmentStatus: match?.status ?? .unmatched
-            )
-        }
     }
 
     private func buildSingleDocumentPage(
@@ -1203,51 +1247,6 @@ final class WorkflowViewModel {
                 alignmentStatus: .unmatched
             )
         }
-    }
-
-    private func fastMatchTargetCue(
-        for sourceCue: SubtitleCue,
-        sourceIndex: Int,
-        sourceCount: Int,
-        targetCues: [SubtitleCue]
-    ) -> (cue: SubtitleCue, confidence: Double, status: CueAlignmentStatus)? {
-        guard !targetCues.isEmpty else { return nil }
-
-        let expectedIndex = min(
-            max(Int((Double(sourceIndex) / Double(max(sourceCount, 1))) * Double(targetCues.count)), 0),
-            max(targetCues.count - 1, 0)
-        )
-        let searchStart = max(0, expectedIndex - 6)
-        let searchEnd = min(targetCues.count - 1, expectedIndex + 6)
-        var bestMatch: (cue: SubtitleCue, confidence: Double, status: CueAlignmentStatus)?
-
-        for targetIndex in searchStart...searchEnd {
-            let targetCue = targetCues[targetIndex]
-            let overlap = max(
-                0,
-                min(sourceCue.endMilliseconds, targetCue.endMilliseconds) -
-                max(sourceCue.startMilliseconds, targetCue.startMilliseconds)
-            )
-            let maxDuration = max(max(sourceCue.durationMilliseconds, targetCue.durationMilliseconds), 1)
-            let overlapRatio = Double(overlap) / Double(maxDuration)
-            let startDelta = abs(sourceCue.startMilliseconds - targetCue.startMilliseconds)
-            let closeness = max(0, 1 - Double(startDelta) / 2_000)
-            let confidence = min(1, overlapRatio * 0.7 + closeness * 0.3)
-            let status: CueAlignmentStatus
-            if overlap > 0 && confidence >= 0.55 {
-                status = .matched
-            } else if overlap > 0 && confidence >= 0.3 {
-                status = .lowConfidence
-            } else {
-                continue
-            }
-
-            if bestMatch == nil || confidence > bestMatch!.confidence {
-                bestMatch = (targetCue, confidence, status)
-            }
-        }
-
-        return bestMatch
     }
 
     private func lowConfidenceCount(in cues: [BilingualCue]) -> Int {
@@ -1821,7 +1820,6 @@ final class WorkflowViewModel {
         loadedSelectionKeys = [nil, nil]
         currentResolutionTask?.cancel()
         mergePreviewTask?.cancel()
-        qualityEvaluationTask?.cancel()
         translationTask?.cancel()
         currentResolutionTask = nil
         translationTask = nil
@@ -1894,7 +1892,7 @@ final class WorkflowViewModel {
     }
 
     private var currentMergeCacheKey: String {
-        "\(cards[0].selectedCandidateID ?? "nil")-\(cards[1].selectedCandidateID ?? "nil")-\(exportFormat.rawValue)"
+        "\(cards[0].selectedCandidateID ?? "nil")-\(cards[1].selectedCandidateID ?? "nil")"
     }
 }
 

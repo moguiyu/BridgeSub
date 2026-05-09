@@ -26,7 +26,7 @@ struct SubtitleAligner {
     private let maxAdDurationMilliseconds: Int = 5_000
     private let maxAdTextLength: Int = 80
 
-    func align(source: SubtitleDocument, target: SubtitleDocument) -> AlignmentReport {
+    func align(source: SubtitleDocument, target: SubtitleDocument, vadResult: VADArbitrationResult? = nil) -> AlignmentReport {
         guard !source.cues.isEmpty else { return .empty }
         guard !target.cues.isEmpty else {
             return report(for: source.cues.map {
@@ -83,7 +83,7 @@ struct SubtitleAligner {
                     // with earlier Polish cues and cascading blanks).
                     let isNonOverlappingMatch = overlap == 0
 
-                    let pairScore = pairConfidence(source: sourceCue, target: targetCue)
+                    let pairScore = pairConfidence(source: sourceCue, target: targetCue, vadResult: vadResult)
                     let matchScore = isNonOverlappingMatch ? Double.leastNormalMagnitude : pairScore + scores[sourceIndex + 1][targetIndex + 1]
                     let skipSourceScore = skipSourcePenalty + scores[sourceIndex + 1][targetIndex]
                     let skipTargetScore = skipTargetPenalty + scores[sourceIndex][targetIndex + 1]
@@ -193,9 +193,10 @@ struct SubtitleAligner {
 
     func normalizeSecondaryForTimelineMerge(
         source: SubtitleDocument,
-        target: SubtitleDocument
+        target: SubtitleDocument,
+        vadResult: VADArbitrationResult? = nil
     ) -> TimelineMergeNormalizationResult {
-        let iterationResult = alignIteratively(source: source, target: target)
+        let iterationResult = alignIteratively(source: source, target: target, vadResult: vadResult)
         let filteredTarget = SubtitleDocument(
             language: target.language,
             format: target.format,
@@ -267,7 +268,7 @@ struct SubtitleAligner {
         )
     }
 
-    private func pairConfidence(source: SubtitleCue, target: SubtitleCue) -> Double {
+    private func pairConfidence(source: SubtitleCue, target: SubtitleCue, vadResult: VADArbitrationResult? = nil) -> Double {
         let overlap = max(0, min(source.endMilliseconds, target.endMilliseconds) - max(source.startMilliseconds, target.startMilliseconds))
         let sourceDuration = max(source.durationMilliseconds, 1)
         let targetDuration = max(target.durationMilliseconds, 1)
@@ -287,15 +288,24 @@ struct SubtitleAligner {
         let textBonus = target.plainText.normalizedSubtitleText.isEmpty ? -0.2 : 0.05
         let noOverlapPenalty = overlap == 0 && startDelta > 1_200 ? 0.22 : 0
 
+        let vadTerm = vadAgreementTerm(source: source, target: target, vadResult: vadResult)
         let rawScore =
-            (overlapRatio * 0.52) +
-            (startCloseness * 0.18) +
-            (endCloseness * 0.15) +
-            (durationSimilarity * 0.15) +
+            (overlapRatio * (vadResult != nil ? 0.40 : 0.52)) +
+            (startCloseness * 0.15) +
+            (endCloseness * 0.12) +
+            (durationSimilarity * 0.11) +
+            vadTerm +
             textBonus -
             noOverlapPenalty
 
         return min(max(rawScore, 0), 1)
+    }
+
+    private func vadAgreementTerm(source: SubtitleCue, target: SubtitleCue, vadResult: VADArbitrationResult?) -> Double {
+        guard let vadResult else { return 0 }
+        let s = vadResult.sourceScores[source.id]?.speechOverlapRatio ?? 0
+        let t = vadResult.targetScores[target.id]?.speechOverlapRatio ?? 0
+        return (1.0 - abs(s - t)) * 0.22
     }
 
     func detectAdCues(in document: SubtitleDocument, otherCues _: [SubtitleCue]) -> Set<Int> {
@@ -344,8 +354,8 @@ struct SubtitleAligner {
         return nil
     }
 
-    func alignIteratively(source: SubtitleDocument, target: SubtitleDocument) -> AlignmentIterationResult {
-        let report1 = align(source: source, target: target)
+    func alignIteratively(source: SubtitleDocument, target: SubtitleDocument, vadResult: VADArbitrationResult? = nil) -> AlignmentIterationResult {
+        let report1 = align(source: source, target: target, vadResult: vadResult)
         let lowConfidenceSourceIDs = Set(
             report1.matches
                 .filter { $0.status == .lowConfidence || $0.status == .unmatched }
@@ -377,7 +387,7 @@ struct SubtitleAligner {
 
         let needsFilteredPass = !detectedAds.isEmpty
         let filteredReport = needsFilteredPass
-            ? align(source: filteredSource, target: filteredTarget)
+            ? align(source: filteredSource, target: filteredTarget, vadResult: vadResult)
             : report1
         let baseIterations = needsFilteredPass ? 2 : 1
 

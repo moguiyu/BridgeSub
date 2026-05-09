@@ -15,12 +15,14 @@
 		18AB55A3442865E261968544 /* StudioTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = F1AEB2483EC96C8B458B0C05 /* StudioTheme.swift */; };
 		1A05D59B1E6BE391E22461EB /* SubtitleAlignmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 346F1E204BF6575B74C85412 /* SubtitleAlignmentService.swift */; };
 		2636156E15D5F91A0043FCE0 /* README.md in Resources */ = {isa = PBXBuildFile; fileRef = FCAFC0367EC3207A587D1FBE /* README.md */; };
+		3FA7B83C439F2AB5BC70F067 /* MergePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = DDE3696422896C8D449093F9 /* MergePipeline.swift */; };
 		497473C51061153EADC3269E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94515D110509028343755D2F /* SettingsView.swift */; };
 		5311DD201B73A4EB2CBB99C1 /* WorkflowInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9236E5453D5FBD0C7AC145 /* WorkflowInspectorView.swift */; };
 		57C57A55E5FE3D61D2009437 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E78AD23646D8A45B1257D2 /* ContentView.swift */; };
 		64D52DB0700AAAF86724B829 /* MKVEmbeddingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4702B9547C51CF2902B975 /* MKVEmbeddingService.swift */; };
 		7348C4830F7D0EFC49260162 /* SubtitleWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795F4437595027129463AE2B /* SubtitleWorkspaceView.swift */; };
 		78CC3E550D8B9D954C84B164 /* SubtitleInventoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C6419FA41F966E25E9A57CC /* SubtitleInventoryService.swift */; };
+		84A3C07DB4472A48A5CC1CB9 /* PipelineEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E09C699F2279E1B638E26A9 /* PipelineEvents.swift */; };
 		885FE9B34D6A04B22C1C57DB /* TranslationProviders.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5B64B46D02288CF64B16C1B /* TranslationProviders.swift */; };
 		960FF5438FB7B2E874AA9146 /* CueTableView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 99AFB4AF1EA04320D3D37827 /* CueTableView.swift */; };
 		99D856C2ABED0646A28562A7 /* SubtitleMergeService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4658E9B82F957C22B2F6262A /* SubtitleMergeService.swift */; };
@@ -34,6 +36,7 @@
 		E88EF4E032D32B105196160A /* SubtitleQualityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C84886E0526FBC4F91B556D /* SubtitleQualityService.swift */; };
 		EEB70D66FFAF891ED2A2FFFF /* MediaToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 846739179ED3AD85648DDF31 /* MediaToolRegistry.swift */; };
 		F86F0AAC1A8CAD95CFA468DF /* Models.swift in Sources */ = {isa = PBXBuildFile; fileRef = 670766D1EFBB6E625B016F49 /* Models.swift */; };
+		F8FC1A15095DE7A663BFA25D /* SileroVADService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94716DDD29E0958608C7A8C3 /* SileroVADService.swift */; };
 		FA991F498AF241748F5202C6 /* ProcessRunner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 485ED433055F83837D71F2B3 /* ProcessRunner.swift */; };
 /* End PBXBuildFile section */
 
@@ -57,10 +60,13 @@
 		846739179ED3AD85648DDF31 /* MediaToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaToolRegistry.swift; sourceTree = "<group>"; };
 		88A8461E3B9D02307EB47025 /* ServiceProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProtocols.swift; sourceTree = "<group>"; };
 		94515D110509028343755D2F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		94716DDD29E0958608C7A8C3 /* SileroVADService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SileroVADService.swift; sourceTree = "<group>"; };
 		99AFB4AF1EA04320D3D37827 /* CueTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueTableView.swift; sourceTree = "<group>"; };
+		9E09C699F2279E1B638E26A9 /* PipelineEvents.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PipelineEvents.swift; sourceTree = "<group>"; };
 		A5B64B46D02288CF64B16C1B /* TranslationProviders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationProviders.swift; sourceTree = "<group>"; };
 		A8E78AD23646D8A45B1257D2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		CE775A43F13CB7464C67158C /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		DDE3696422896C8D449093F9 /* MergePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergePipeline.swift; sourceTree = "<group>"; };
 		F1AEB2483EC96C8B458B0C05 /* StudioTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioTheme.swift; sourceTree = "<group>"; };
 		F3828246835FEF257F0E62F4 /* FFprobeMediaInspectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFprobeMediaInspectionService.swift; sourceTree = "<group>"; };
 		F487DEE7922369169C82CA0A /* KeychainCredentialStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainCredentialStore.swift; sourceTree = "<group>"; };
@@ -102,6 +108,7 @@
 				F3828246835FEF257F0E62F4 /* FFprobeMediaInspectionService.swift */,
 				846739179ED3AD85648DDF31 /* MediaToolRegistry.swift */,
 				485ED433055F83837D71F2B3 /* ProcessRunner.swift */,
+				94716DDD29E0958608C7A8C3 /* SileroVADService.swift */,
 				414279E04F944CA110A42C7D /* SubtitleDocumentIO.swift */,
 			);
 			path = Media;
@@ -177,7 +184,9 @@
 		C65C063AC000A8E18D5E9B0A /* Services */ = {
 			isa = PBXGroup;
 			children = (
+				DDE3696422896C8D449093F9 /* MergePipeline.swift */,
 				5A4702B9547C51CF2902B975 /* MKVEmbeddingService.swift */,
+				9E09C699F2279E1B638E26A9 /* PipelineEvents.swift */,
 				88A8461E3B9D02307EB47025 /* ServiceProtocols.swift */,
 				346F1E204BF6575B74C85412 /* SubtitleAlignmentService.swift */,
 				4C6419FA41F966E25E9A57CC /* SubtitleInventoryService.swift */,
@@ -323,12 +332,15 @@
 				BC9C42F411144C86B1A91925 /* KeychainCredentialStore.swift in Sources */,
 				64D52DB0700AAAF86724B829 /* MKVEmbeddingService.swift in Sources */,
 				EEB70D66FFAF891ED2A2FFFF /* MediaToolRegistry.swift in Sources */,
+				3FA7B83C439F2AB5BC70F067 /* MergePipeline.swift in Sources */,
 				F86F0AAC1A8CAD95CFA468DF /* Models.swift in Sources */,
 				E5B1CB5F624DF7DE89375661 /* OpenSubtitlesClient.swift in Sources */,
+				84A3C07DB4472A48A5CC1CB9 /* PipelineEvents.swift in Sources */,
 				FA991F498AF241748F5202C6 /* ProcessRunner.swift in Sources */,
 				0D8A701B9400286F0380D93C /* ProgressButton.swift in Sources */,
 				9F4F54064332449544E49407 /* ServiceProtocols.swift in Sources */,
 				497473C51061153EADC3269E /* SettingsView.swift in Sources */,
+				F8FC1A15095DE7A663BFA25D /* SileroVADService.swift in Sources */,
 				18AB55A3442865E261968544 /* StudioTheme.swift in Sources */,
 				1A05D59B1E6BE391E22461EB /* SubtitleAlignmentService.swift in Sources */,
 				1107786B3883F0FD74450F79 /* SubtitleDocumentIO.swift in Sources */,

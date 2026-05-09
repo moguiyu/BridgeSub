@@ -2,130 +2,170 @@ import Foundation
 
 struct SubtitleMergeService: SubtitleMergingServicing {
     private let aligner = SubtitleAligner()
-    private let boundarySnapToleranceMilliseconds = 250
+    private let pageSize = 50
 
     func merge(
         source: SubtitleDocument,
         target: SubtitleDocument,
-        outputFormat: SubtitleFormatKind
+        outputFormat: SubtitleFormatKind,
+        vadResult: VADArbitrationResult? = nil,
+        alignmentReport: AlignmentReport? = nil,
+        onSegment: ((MergeSegment) -> Void)? = nil,
+        onPage: (([BilingualCue], Int, Int?) -> Void)? = nil
     ) -> MergedSubtitleDocument {
-        let timelineNormalization = aligner.normalizeSecondaryForTimelineMerge(source: source, target: target)
-        let alignmentReport = timelineNormalization.normalization.report
-        let sourceCues = normalizedTimelineCues(from: source.cues)
-        let sourceBoundaries = Set(sourceCues.flatMap { [$0.startMilliseconds, $0.endMilliseconds] })
-        let targetCues = normalizedTimelineCues(from: timelineNormalization.normalizedTarget.cues)
-            .compactMap { cue -> TimelineCue? in
-                let start = snappedBoundary(for: cue.startMilliseconds, sourceBoundaries: sourceBoundaries)
-                let end = snappedBoundary(for: cue.endMilliseconds, sourceBoundaries: sourceBoundaries)
-                guard end > start else { return nil }
-                return TimelineCue(
-                    startMilliseconds: start,
-                    endMilliseconds: end,
-                    text: cue.text
-                )
+        // Use the pre-computed report when provided (target is already normalized).
+        // Otherwise normalize here and use the normalized target for accurate timings.
+        let report: AlignmentReport
+        let effectiveTarget: SubtitleDocument
+        if let alignmentReport {
+            report = alignmentReport
+            effectiveTarget = target
+        } else {
+            let norm = aligner.normalizeSecondaryForTimelineMerge(
+                source: source, target: target, vadResult: vadResult
+            )
+            report = norm.normalization.report
+            effectiveTarget = norm.normalizedTarget
+        }
+
+        let sourceCues = source.cues
+        let targetCues = effectiveTarget.cues
+        let sourceByID = Dictionary(uniqueKeysWithValues: sourceCues.map { ($0.id, $0) })
+        let targetByID = Dictionary(uniqueKeysWithValues: targetCues.map { ($0.id, $0) })
+        let segments = buildSegments(report: report, sourceByID: sourceByID, vadResult: vadResult)
+
+        var allCues: [BilingualCue] = []
+        var nextID = 1
+        var emittedPages = 0
+
+        for segment in segments {
+            onSegment?(MergeSegment(
+                startMilliseconds: segment.startMilliseconds,
+                endMilliseconds: segment.endMilliseconds,
+                isSourceMaster: segment.isSourceMaster
+            ))
+
+            let segCues = buildSegmentTimeline(segment: segment, sourceByID: sourceByID,
+                                               targetByID: targetByID, startID: nextID)
+            nextID += segCues.count
+            allCues.append(contentsOf: segCues)
+
+            // Emit only complete pages while iterating segments
+            while allCues.count >= (emittedPages + 1) * pageSize {
+                let start = emittedPages * pageSize
+                onPage?(Array(allCues[start..<start + pageSize]), emittedPages + 1, nil)
+                emittedPages += 1
             }
-        let cues = buildTimelineCues(sourceCues: sourceCues, targetCues: targetCues)
+        }
+
+        // Emit remaining cues as the final page
+        let remainingStart = emittedPages * pageSize
+        if remainingStart < allCues.count {
+            onPage?(Array(allCues[remainingStart...]), emittedPages + 1, emittedPages + 1)
+        }
 
         return MergedSubtitleDocument(
             sourceLanguage: source.language,
             targetLanguage: target.language,
             outputFormat: outputFormat,
-            cues: cues,
-            alignmentReport: alignmentReport
+            cues: allCues,
+            alignmentReport: report
         )
     }
 
-    private func normalizedTimelineCues(from cues: [SubtitleCue]) -> [TimelineCue] {
-        cues.compactMap { cue in
-            let text = cue.plainText.normalizedSubtitleText
-            guard cue.endMilliseconds > cue.startMilliseconds, !text.isEmpty else { return nil }
-            return TimelineCue(
-                startMilliseconds: cue.startMilliseconds,
-                endMilliseconds: cue.endMilliseconds,
-                text: text
-            )
-        }
-    }
+    // MARK: - Segment Building
 
-    private func snappedBoundary(for time: Int, sourceBoundaries: Set<Int>) -> Int {
-        guard let nearest = sourceBoundaries.min(by: { abs($0 - time) < abs($1 - time) }),
-              abs(nearest - time) <= boundarySnapToleranceMilliseconds else {
-            return time
-        }
-        return nearest
-    }
+    private func buildSegments(
+        report: AlignmentReport,
+        sourceByID: [Int: SubtitleCue],
+        vadResult: VADArbitrationResult?
+    ) -> [AlignmentSegment] {
+        var segments: [AlignmentSegment] = []
+        var currentMatches: [CueAlignmentMatch] = []
+        var currentIsSourceMaster: Bool?
+        var currentStart: Int?
+        var currentEnd: Int?
 
-    private func buildTimelineCues(sourceCues: [TimelineCue], targetCues: [TimelineCue]) -> [BilingualCue] {
-        let times = Set((sourceCues + targetCues).flatMap { [$0.startMilliseconds, $0.endMilliseconds] }).sorted()
-        guard times.count >= 2 else { return [] }
-
-        let slices = zip(times.dropLast(), times.dropFirst()).compactMap { start, end -> TimelineSlice? in
-            guard end > start else { return nil }
-            let sourceText = joinedTextsCovering(sourceCues, start: start, end: end)
-            let targetText = joinedTextsCovering(targetCues, start: start, end: end)
-            guard !sourceText.isEmpty || !targetText.isEmpty else { return nil }
-            return TimelineSlice(
-                startMilliseconds: start,
-                endMilliseconds: end,
-                sourceText: sourceText,
-                targetText: targetText
-            )
+        func flush() {
+            guard !currentMatches.isEmpty, let start = currentStart, let end = currentEnd else { return }
+            segments.append(AlignmentSegment(
+                matches: currentMatches, isSourceMaster: currentIsSourceMaster ?? true,
+                startMilliseconds: start, endMilliseconds: end
+            ))
+            currentMatches = []; currentIsSourceMaster = nil; currentStart = nil; currentEnd = nil
         }
 
-        let mergedSlices = mergeAdjacentEquivalentSlices(slices)
-        return mergedSlices.enumerated().map { index, slice in
-            let hasBothTexts = !slice.sourceText.isEmpty && !slice.targetText.isEmpty
-            return BilingualCue(
-                id: index + 1,
-                startMilliseconds: slice.startMilliseconds,
-                endMilliseconds: slice.endMilliseconds,
-                sourceText: slice.sourceText,
-                targetText: slice.targetText,
-                alignmentConfidence: hasBothTexts ? 1 : 0,
-                alignmentStatus: hasBothTexts ? .matched : .unmatched
-            )
-        }
-    }
+        for match in report.matches {
+            let isSourceMaster = vadResult.map {
+                $0.masterSide(for: match.sourceCueID, targetCueID: match.targetCueID) == .source
+            } ?? true
 
-    private func joinedTextsCovering(_ cues: [TimelineCue], start: Int, end: Int) -> String {
-        cues
-            .filter { $0.startMilliseconds < end && $0.endMilliseconds > start }
-            .map(\.text)
-            .removingAdjacentDuplicates()
-            .joined(separator: " ")
-    }
+            if let existing = currentIsSourceMaster, isSourceMaster != existing { flush() }
+            currentIsSourceMaster = isSourceMaster
+            currentMatches.append(match)
 
-    private func mergeAdjacentEquivalentSlices(_ slices: [TimelineSlice]) -> [TimelineSlice] {
-        slices.reduce(into: [TimelineSlice]()) { merged, slice in
-            guard let previous = merged.last,
-                  previous.endMilliseconds == slice.startMilliseconds,
-                  previous.sourceText == slice.sourceText,
-                  previous.targetText == slice.targetText else {
-                merged.append(slice)
-                return
+            if let src = sourceByID[match.sourceCueID] {
+                currentStart = currentStart.map { min($0, src.startMilliseconds) } ?? src.startMilliseconds
+                currentEnd = currentEnd.map { max($0, src.endMilliseconds) } ?? src.endMilliseconds
             }
+        }
+        flush()
 
-            merged[merged.count - 1] = TimelineSlice(
-                startMilliseconds: previous.startMilliseconds,
-                endMilliseconds: slice.endMilliseconds,
-                sourceText: previous.sourceText,
-                targetText: previous.targetText
+        return segments
+    }
+
+    // MARK: - Per-Segment Timeline
+
+    private func buildSegmentTimeline(
+        segment: AlignmentSegment,
+        sourceByID: [Int: SubtitleCue],
+        targetByID: [Int: SubtitleCue],
+        startID: Int
+    ) -> [BilingualCue] {
+        let isSourceMaster = segment.isSourceMaster
+        let masterCues: [SubtitleCue]
+        let secondaryCues: [SubtitleCue]
+
+        if isSourceMaster {
+            masterCues = segment.matches.compactMap { sourceByID[$0.sourceCueID] }
+            secondaryCues = segment.matches.compactMap { $0.targetCueID.flatMap { targetByID[$0] } }
+        } else {
+            masterCues = segment.matches.compactMap { $0.targetCueID.flatMap { targetByID[$0] } }
+            secondaryCues = segment.matches.compactMap { sourceByID[$0.sourceCueID] }
+        }
+
+        return masterCues.enumerated().map { offset, masterCue in
+            let secondaryText = secondaryCues
+                .filter { $0.startMilliseconds < masterCue.endMilliseconds
+                    && $0.endMilliseconds > masterCue.startMilliseconds }
+                .map { $0.plainText.normalizedSubtitleText }
+                .removingAdjacentDuplicates()
+                .joined(separator: " ")
+
+            let srcText = isSourceMaster ? masterCue.plainText.normalizedSubtitleText : secondaryText
+            let tgtText = isSourceMaster ? secondaryText : masterCue.plainText.normalizedSubtitleText
+            let hasBoth = !srcText.isEmpty && !tgtText.isEmpty
+
+            return BilingualCue(
+                id: startID + offset,
+                startMilliseconds: masterCue.startMilliseconds,
+                endMilliseconds: masterCue.endMilliseconds,
+                sourceText: srcText,
+                targetText: tgtText,
+                alignmentConfidence: hasBoth ? 1.0 : 0.0,
+                alignmentStatus: hasBoth ? .matched : .unmatched
             )
         }
     }
 }
 
-private struct TimelineCue {
-    let startMilliseconds: Int
-    let endMilliseconds: Int
-    let text: String
-}
+// MARK: - Supporting Types
 
-private struct TimelineSlice {
+private struct AlignmentSegment {
+    let matches: [CueAlignmentMatch]
+    let isSourceMaster: Bool
     let startMilliseconds: Int
     let endMilliseconds: Int
-    let sourceText: String
-    let targetText: String
 }
 
 private extension Array where Element == String {
