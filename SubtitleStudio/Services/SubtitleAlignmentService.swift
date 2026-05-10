@@ -264,7 +264,10 @@ struct SubtitleAligner {
             unmatchedCueRatio: Double(unmatched.count) / count,
             medianStartDeltaMilliseconds: medianDelta,
             monotonicityViolations: 0,
-            averageConfidence: matches.isEmpty ? 0 : matches.map(\.confidence).reduce(0, +) / count
+            averageConfidence: matches.isEmpty ? 0 : matches.map(\.confidence).reduce(0, +) / count,
+            detectedTimingOffsetMilliseconds: nil,
+            orphanedSourceCueIDs: [],
+            orphanedTargetCueIDs: []
         )
     }
 

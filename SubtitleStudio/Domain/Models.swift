@@ -1497,6 +1497,9 @@ struct AlignmentReport: Equatable, Sendable {
     let medianStartDeltaMilliseconds: Double
     let monotonicityViolations: Int
     let averageConfidence: Double
+    let detectedTimingOffsetMilliseconds: Int?
+    let orphanedSourceCueIDs: Set<Int>
+    let orphanedTargetCueIDs: Set<Int>
 
     static let empty = AlignmentReport(
         matches: [],
@@ -1505,7 +1508,10 @@ struct AlignmentReport: Equatable, Sendable {
         unmatchedCueRatio: 1,
         medianStartDeltaMilliseconds: 0,
         monotonicityViolations: 0,
-        averageConfidence: 0
+        averageConfidence: 0,
+        detectedTimingOffsetMilliseconds: nil,
+        orphanedSourceCueIDs: [],
+        orphanedTargetCueIDs: []
     )
 }
 
