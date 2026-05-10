@@ -912,6 +912,25 @@ final class WorkflowViewModel {
         lastVADResult?.speechSegments.count ?? 0
     }
 
+    var detectedTimingDriftLabel: String? {
+        guard let offset = qualityReport?.alignmentReport.detectedTimingOffsetMilliseconds else { return nil }
+        let sign = offset > 0 ? "+" : ""
+        return "\(sign)\(offset)ms (corrected)"
+    }
+
+    var orphanedSecondaryCount: Int {
+        qualityReport?.alignmentReport.orphanedTargetCueIDs.count ?? 0
+    }
+
+    var secondaryCoverageAfterInjection: Double {
+        guard let report = qualityReport else { return 0 }
+        let alignment = report.alignmentReport
+        let matched = alignment.matches.filter { $0.targetCueID != nil }.count
+        let orphaned = alignment.orphanedTargetCueIDs.count
+        let total = matched + orphaned
+        return total > 0 ? Double(matched + orphaned) / Double(total) : 1.0
+    }
+
     var showVADReminder: Bool {
         !isVADAnalysisRunning && lastVADResult == nil
             && qualityReport.map({ $0.alignmentReport.matchedCueRatio < 0.70 }) ?? false
