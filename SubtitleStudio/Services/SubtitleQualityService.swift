@@ -79,6 +79,21 @@ struct SubtitleQualityService: SubtitleQualityScoringServicing {
             notes.append("Quality gate passed the heuristic checks.")
         }
 
+        if let driftMs = alignmentReport.detectedTimingOffsetMilliseconds {
+            let sign = driftMs > 0 ? "+" : ""
+            notes.append("Timing drift: \(sign)\(driftMs)ms detected and corrected")
+        }
+
+        let orphanCount = alignmentReport.orphanedTargetCueIDs.count
+        if orphanCount > 0 {
+            let matchedCount = alignmentReport.matches.filter { $0.targetCueID != nil }.count
+            let totalTarget = matchedCount + orphanCount
+            let coverageAfter = totalTarget > 0
+                ? Double(matchedCount + orphanCount) / Double(totalTarget)
+                : 1.0
+            notes.append("\(orphanCount) secondary cues recovered as secondary-only (coverage: \(Int((coverageAfter * 100).rounded()))%)")
+        }
+
         let decision: SubtitleDecision
         if score >= 0.78 {
             decision = .accept
