@@ -58,18 +58,76 @@ struct SubtitleMergeService: SubtitleMergingServicing {
             }
         }
 
-        // Emit remaining cues as the final page
+        // Emit remaining cues as the final page (streaming preview — orphans added below)
         let remainingStart = emittedPages * pageSize
         if remainingStart < allCues.count {
             onPage?(Array(allCues[remainingStart...]), emittedPages + 1, emittedPages + 1)
         }
+
+        // Collect secondary cues that were never matched (orphans)
+        let matchedTargetIDs = Set(report.matches.compactMap(\.targetCueID))
+        let orphanedTargetCues = targetCues.filter { !matchedTargetIDs.contains($0.id) }
+
+        let matchedRanges = allCues.map { ($0.startMilliseconds, $0.endMilliseconds) }
+
+        var orphanBilingualCues: [BilingualCue] = []
+        for orphan in orphanedTargetCues {
+            let text = orphan.plainText.normalizedSubtitleText
+            guard !text.isEmpty else { continue }
+            let overlaps = matchedRanges.contains {
+                $0.0 < orphan.endMilliseconds && $0.1 > orphan.startMilliseconds
+            }
+            if overlaps { continue }
+            orphanBilingualCues.append(BilingualCue(
+                id: 0,
+                startMilliseconds: orphan.startMilliseconds,
+                endMilliseconds: orphan.endMilliseconds,
+                sourceText: "",
+                targetText: text,
+                alignmentConfidence: 0.0,
+                alignmentStatus: .unmatched
+            ))
+        }
+
+        if !orphanBilingualCues.isEmpty {
+            allCues = (allCues + orphanBilingualCues)
+                .sorted { $0.startMilliseconds < $1.startMilliseconds }
+        }
+        allCues = allCues.enumerated().map { i, cue in
+            BilingualCue(
+                id: i + 1,
+                startMilliseconds: cue.startMilliseconds,
+                endMilliseconds: cue.endMilliseconds,
+                sourceText: cue.sourceText,
+                targetText: cue.targetText,
+                alignmentConfidence: cue.alignmentConfidence,
+                alignmentStatus: cue.alignmentStatus
+            )
+        }
+
+        let orphanedSourceIDs = Set(
+            report.matches.filter { $0.targetCueID == nil }.map(\.sourceCueID)
+        )
+        let orphanedTargetIDs = Set(orphanedTargetCues.map(\.id))
+        let finalReport = AlignmentReport(
+            matches: report.matches,
+            matchedCueRatio: report.matchedCueRatio,
+            lowConfidenceCueRatio: report.lowConfidenceCueRatio,
+            unmatchedCueRatio: report.unmatchedCueRatio,
+            medianStartDeltaMilliseconds: report.medianStartDeltaMilliseconds,
+            monotonicityViolations: report.monotonicityViolations,
+            averageConfidence: report.averageConfidence,
+            detectedTimingOffsetMilliseconds: report.detectedTimingOffsetMilliseconds,
+            orphanedSourceCueIDs: orphanedSourceIDs,
+            orphanedTargetCueIDs: orphanedTargetIDs
+        )
 
         return MergedSubtitleDocument(
             sourceLanguage: source.language,
             targetLanguage: target.language,
             outputFormat: outputFormat,
             cues: allCues,
-            alignmentReport: report
+            alignmentReport: finalReport
         )
     }
 
