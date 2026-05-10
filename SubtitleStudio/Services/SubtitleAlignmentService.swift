@@ -209,10 +209,22 @@ struct SubtitleAligner {
             appliedOffset: iterationResult.appliedOffset
         )
 
+        let residualDrift = detectResidualDrift(
+            report: iterationResult.report,
+            sourceCues: source.cues,
+            targetCues: normalizedTarget.cues
+        )
+        let driftCorrectedTarget: SubtitleDocument
+        if let drift = residualDrift {
+            driftCorrectedTarget = shiftCues(in: normalizedTarget, by: -drift)
+        } else {
+            driftCorrectedTarget = normalizedTarget
+        }
+
         let primaryMatchedTextsBySourceCueID = iterationResult.report.matches.reduce(into: [Int: String]()) { partialResult, match in
             guard match.status == .matched,
                   let targetCueID = match.targetCueID,
-                  let text = normalizedTarget.cues.first(where: { $0.id == targetCueID })?.plainText,
+                  let text = driftCorrectedTarget.cues.first(where: { $0.id == targetCueID })?.plainText,
                   !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
                 return
             }
@@ -220,12 +232,25 @@ struct SubtitleAligner {
         }
         let referenceSpansBySourceCueID = buildReferenceSpans(
             source: source,
-            normalizedTarget: normalizedTarget,
+            normalizedTarget: driftCorrectedTarget,
             report: iterationResult.report
         )
 
+        let driftReport = AlignmentReport(
+            matches: iterationResult.report.matches,
+            matchedCueRatio: iterationResult.report.matchedCueRatio,
+            lowConfidenceCueRatio: iterationResult.report.lowConfidenceCueRatio,
+            unmatchedCueRatio: iterationResult.report.unmatchedCueRatio,
+            medianStartDeltaMilliseconds: iterationResult.report.medianStartDeltaMilliseconds,
+            monotonicityViolations: iterationResult.report.monotonicityViolations,
+            averageConfidence: iterationResult.report.averageConfidence,
+            detectedTimingOffsetMilliseconds: residualDrift,
+            orphanedSourceCueIDs: [],
+            orphanedTargetCueIDs: []
+        )
+
         let normalization = AlignmentNormalizationResult(
-            report: iterationResult.report,
+            report: driftReport,
             iterations: iterationResult.iterations,
             detectedAds: iterationResult.detectedAds,
             appliedOffset: iterationResult.appliedOffset,
@@ -235,7 +260,7 @@ struct SubtitleAligner {
 
         return TimelineMergeNormalizationResult(
             normalization: normalization,
-            normalizedTarget: normalizedTarget
+            normalizedTarget: driftCorrectedTarget
         )
     }
 
@@ -442,6 +467,37 @@ struct SubtitleAligner {
             shiftMilliseconds = appliedOffset.milliseconds
         }
         return shiftCues(in: target, by: shiftMilliseconds)
+    }
+
+    private func detectResidualDrift(
+        report: AlignmentReport,
+        sourceCues: [SubtitleCue],
+        targetCues: [SubtitleCue]
+    ) -> Int? {
+        let sourceByID = Dictionary(uniqueKeysWithValues: sourceCues.map { ($0.id, $0) })
+        let targetByID = Dictionary(uniqueKeysWithValues: targetCues.map { ($0.id, $0) })
+
+        let deltas: [Int] = report.matches.compactMap { match in
+            guard match.status == .matched || match.status == .lowConfidence,
+                  let targetID = match.targetCueID,
+                  let src = sourceByID[match.sourceCueID],
+                  let tgt = targetByID[targetID] else { return nil }
+            return tgt.startMilliseconds - src.startMilliseconds
+        }
+
+        guard deltas.count >= 5 else { return nil }
+
+        let sorted = deltas.sorted()
+        let median = sorted.count.isMultiple(of: 2)
+            ? (sorted[sorted.count / 2 - 1] + sorted[sorted.count / 2]) / 2
+            : sorted[sorted.count / 2]
+
+        guard abs(median) > 30 else { return nil }
+
+        let tightCount = deltas.filter { abs($0 - median) <= 100 }.count
+        guard Double(tightCount) / Double(deltas.count) >= 0.80 else { return nil }
+
+        return median
     }
 
     private func buildReferenceSpans(
