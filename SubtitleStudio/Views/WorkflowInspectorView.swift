@@ -411,6 +411,24 @@ struct WorkflowInspectorView: View {
                             systemImage: "chart.bar",
                             tone: averageConfidenceTone(report.alignmentReport.averageConfidence)
                         )
+
+                        if let driftLabel = viewModel.detectedTimingDriftLabel {
+                            alignmentRow(
+                                title: "Timing drift",
+                                value: driftLabel,
+                                systemImage: "clock.arrow.2.circlepath",
+                                tone: .info
+                            )
+                        }
+
+                        if viewModel.orphanedSecondaryCount > 0 {
+                            alignmentRow(
+                                title: "Recovered cues",
+                                value: "\(viewModel.orphanedSecondaryCount) secondary-only injected",
+                                systemImage: "plus.bubble",
+                                tone: .success
+                            )
+                        }
                     }
 
                     if let reminder = viewModel.qualityReminderMessage {
