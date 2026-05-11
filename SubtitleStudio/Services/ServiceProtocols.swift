@@ -26,11 +26,34 @@ extension SubtitleDocumentIOServicing {
 }
 
 protocol SubtitleMergingServicing: Sendable {
-    func merge(source: SubtitleDocument, target: SubtitleDocument, outputFormat: SubtitleFormatKind) -> MergedSubtitleDocument
+    func merge(
+        source: SubtitleDocument,
+        target: SubtitleDocument,
+        outputFormat: SubtitleFormatKind,
+        vadResult: VADArbitrationResult?,
+        alignmentReport: AlignmentReport?,
+        onSegment: ((MergeSegment) -> Void)?,
+        onPage: (([BilingualCue], Int, Int?) -> Void)?
+    ) -> MergedSubtitleDocument
+}
+
+protocol VADServicing: Sendable {
+    func classifyCues(in document: SubtitleDocument, trackTitle: String?) -> [CueKind]
+    func analyze(
+        videoURL: URL,
+        source: SubtitleDocument,
+        target: SubtitleDocument,
+        audioTrackIndex: Int
+    ) async throws -> VADArbitrationResult
 }
 
 protocol SubtitleQualityScoringServicing: Sendable {
-    func evaluate(source: SubtitleDocument, candidate: SubtitleDocument, targetLanguage: LanguageOption) -> SubtitleQualityReport
+    func evaluate(
+        source: SubtitleDocument,
+        candidate: SubtitleDocument,
+        targetLanguage: LanguageOption,
+        alignmentReport: AlignmentReport?
+    ) -> SubtitleQualityReport
 }
 
 protocol SubtitleExportServicing: Sendable {

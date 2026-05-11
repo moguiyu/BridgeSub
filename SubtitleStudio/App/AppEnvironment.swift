@@ -6,18 +6,22 @@ struct AppEnvironment {
     let inventoryService: any SubtitleInventoryServicing
     let subtitleIOService: any SubtitleDocumentIOServicing
     let mergeService: any SubtitleMergingServicing
+    let vadService: any VADServicing
     let qualityService: any SubtitleQualityScoringServicing
     let exportService: any SubtitleExportServicing
     let mkvEmbeddingService: any MKVEmbeddingServicing
     let credentialStore: any CredentialStore
     let openSubtitlesService: any OpenSubtitlesServicing
     let translationProviders: [TranslationProviderKind: any TranslationServicing]
+    let pipeline: MergePipeline
 
     @MainActor
     static let live: AppEnvironment = {
         let processRunner = ProcessRunner()
         let credentialStore = KeychainCredentialStore(serviceName: "SubtitleStudio")
         let toolRegistry = MediaToolRegistry()
+        let mergeService = SubtitleMergeService()
+        let qualityService = SubtitleQualityService()
 
         return AppEnvironment(
             toolRegistry: toolRegistry,
@@ -30,8 +34,9 @@ struct AppEnvironment {
                 processRunner: processRunner,
                 toolRegistry: toolRegistry
             ),
-            mergeService: SubtitleMergeService(),
-            qualityService: SubtitleQualityService(),
+            mergeService: mergeService,
+            vadService: SileroVADService(processRunner: processRunner, toolRegistry: toolRegistry),
+            qualityService: qualityService,
             exportService: SubtitleExportService(),
             mkvEmbeddingService: MKVEmbeddingService(
                 processRunner: processRunner,
@@ -46,7 +51,8 @@ struct AppEnvironment {
             translationProviders: [
                 .ollama: OllamaTranslationService(credentialStore: credentialStore),
                 .openAICompatible: OpenAICompatibleTranslationService(credentialStore: credentialStore)
-            ]
+            ],
+            pipeline: MergePipeline(mergeService: mergeService, qualityService: qualityService)
         )
     }()
 }

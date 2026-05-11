@@ -26,16 +26,23 @@ struct SubtitleInventoryService: SubtitleInventoryServicing {
                 locator: .embedded(trackIndex: track.index),
                 rankingScore: rankEmbedded(track, isLargeRemoteMKV: isLargeRemoteMKV),
                 fileURL: nil,
-                embeddedTrack: track
+                embeddedTrack: track,
+                kind: classifyCandidateKind(label: track.displayLabel)
             )
         }
 
-        let sidecarCandidates = report.localSubtitleSidecars.compactMap { url -> SubtitleCandidate? in
+        let sidecarURLs = discoverSidecarFiles(from: report.videoURL)
+        let sidecarCandidates = sidecarURLs.compactMap { url -> SubtitleCandidate? in
             let language = inferLanguage(from: url)
             let format = SubtitleFormatKind(rawValue: url.pathExtension.lowercased()) ?? .unknown
+            let videoDir = report.videoURL.deletingLastPathComponent()
+            let relativePath = url.path.hasPrefix(videoDir.path)
+                ? String(url.path.dropFirst(videoDir.path.count + 1))
+                : url.lastPathComponent
+            let kind = classifyCandidateKind(label: url.lastPathComponent)
             return SubtitleCandidate(
                 id: "sidecar-\(url.lastPathComponent)",
-                language: language ?? .english, // Default to English if not detected; user can still select it
+                language: language ?? .english,
                 format: format,
                 origin: .localFile,
                 sourceLabel: url.lastPathComponent,
@@ -44,7 +51,9 @@ struct SubtitleInventoryService: SubtitleInventoryServicing {
                 locator: .file(url),
                 rankingScore: rankSidecar(url),
                 fileURL: url,
-                embeddedTrack: nil
+                embeddedTrack: nil,
+                kind: kind,
+                relativePath: relativePath
             )
         }
 
@@ -67,6 +76,61 @@ struct SubtitleInventoryService: SubtitleInventoryServicing {
             bitmapTrackCounts: bitmapTrackCounts,
             warnings: warnings
         )
+    }
+
+    private func discoverSidecarFiles(
+        from videoURL: URL,
+        supportedExtensions: Set<String> = ["srt", "ass", "ssa", "vtt", "sub"]
+    ) -> [URL] {
+        let videoDir = videoURL.deletingLastPathComponent()
+        let videoStem = videoURL.deletingPathExtension().lastPathComponent
+        let fileManager = FileManager.default
+
+        guard let enumerator = fileManager.enumerator(
+            at: videoDir,
+            includingPropertiesForKeys: [.isRegularFileKey],
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else { return [] }
+
+        var found: [(url: URL, matchQuality: Int, depth: Int)] = []
+        let standardizedVideoDir = videoDir.standardized
+
+        for case let fileURL as URL in enumerator {
+            guard supportedExtensions.contains(fileURL.pathExtension.lowercased()) else { continue }
+            let stem = fileURL.deletingPathExtension().lastPathComponent
+            let isSameDir = fileURL.deletingLastPathComponent().standardized == standardizedVideoDir
+            let hasStemMatch = stem.localizedCaseInsensitiveContains(videoStem)
+            let depth = fileURL.pathComponents.count - videoDir.pathComponents.count
+            let matchQuality: Int
+            switch (isSameDir, hasStemMatch) {
+            case (true, true):  matchQuality = 3
+            case (true, false): matchQuality = 2
+            case (false, true): matchQuality = 1
+            case (false, false): matchQuality = 0
+            }
+            found.append((fileURL, matchQuality, depth))
+        }
+
+        found.sort {
+            if $0.matchQuality != $1.matchQuality { return $0.matchQuality > $1.matchQuality }
+            return $0.depth < $1.depth
+        }
+        return found.map(\.url)
+    }
+
+    private func classifyCandidateKind(label: String) -> CueKind {
+        let lower = label.lowercased()
+        if lower.contains("forced") || lower.contains(" fn") || lower.hasSuffix(".fn") {
+            return .forcedNarrative
+        }
+        if lower.contains("sdh") || lower.contains("hearing impaired")
+            || lower.contains("closed caption") || lower.contains("[cc]") {
+            return .sdh
+        }
+        if lower.contains("audio description") || lower.contains(" ad.") || lower.hasSuffix(".ad") {
+            return .ad
+        }
+        return .unknown
     }
 
     private func inferLanguage(from url: URL) -> LanguageOption? {

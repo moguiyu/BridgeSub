@@ -6,9 +6,10 @@ struct SubtitleQualityService: SubtitleQualityScoringServicing {
     func evaluate(
         source: SubtitleDocument,
         candidate: SubtitleDocument,
-        targetLanguage: LanguageOption
+        targetLanguage: LanguageOption,
+        alignmentReport: AlignmentReport? = nil
     ) -> SubtitleQualityReport {
-        let alignmentReport = aligner.align(source: source, target: candidate)
+        let alignmentReport = alignmentReport ?? aligner.align(source: source, target: candidate)
 
         guard !source.cues.isEmpty, !candidate.cues.isEmpty else {
             return SubtitleQualityReport(
@@ -76,6 +77,21 @@ struct SubtitleQualityService: SubtitleQualityScoringServicing {
         }
         if notes.isEmpty {
             notes.append("Quality gate passed the heuristic checks.")
+        }
+
+        if let driftMs = alignmentReport.detectedTimingOffsetMilliseconds {
+            let sign = driftMs > 0 ? "+" : ""
+            notes.append("Timing drift: \(sign)\(driftMs)ms detected and corrected")
+        }
+
+        let orphanCount = alignmentReport.orphanedTargetCueIDs.count
+        if orphanCount > 0 {
+            let matchedCount = alignmentReport.matches.filter { $0.targetCueID != nil }.count
+            let totalTarget = matchedCount + orphanCount
+            let coverageAfter = totalTarget > 0
+                ? Double(matchedCount + orphanCount) / Double(totalTarget)
+                : 1.0
+            notes.append("\(orphanCount) secondary cues recovered as secondary-only (coverage: \(Int((coverageAfter * 100).rounded()))%)")
         }
 
         let decision: SubtitleDecision

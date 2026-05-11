@@ -411,6 +411,24 @@ struct WorkflowInspectorView: View {
                             systemImage: "chart.bar",
                             tone: averageConfidenceTone(report.alignmentReport.averageConfidence)
                         )
+
+                        if let driftLabel = viewModel.detectedTimingDriftLabel {
+                            alignmentRow(
+                                title: "Timing drift",
+                                value: driftLabel,
+                                systemImage: "clock.arrow.2.circlepath",
+                                tone: .info
+                            )
+                        }
+
+                        if viewModel.orphanedSecondaryCount > 0 {
+                            alignmentRow(
+                                title: "Recovered cues",
+                                value: "\(viewModel.orphanedSecondaryCount) secondary-only injected",
+                                systemImage: "plus.bubble",
+                                tone: .success
+                            )
+                        }
                     }
 
                     if let reminder = viewModel.qualityReminderMessage {
@@ -434,6 +452,106 @@ struct WorkflowInspectorView: View {
                         title: "Alignment metrics unavailable",
                         subtitle: "Merge two subtitle tracks to surface timing drift, confidence, and quality data."
                     )
+                }
+
+                // ── VAD Voice Analysis ───────────────────────────
+
+                if viewModel.isVADAnalysisRunning {
+                    HStack(spacing: StudioSpacing.sm) {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                            .frame(width: 16, height: 16)
+                        Text("Analyzing audio with voice detection...")
+                            .font(StudioFont.caption)
+                            .foregroundStyle(StudioColor.textSecondary)
+                    }
+                    .padding(.top, StudioSpacing.sm)
+                }
+
+                if viewModel.vadHasResult, let result = viewModel.lastVADResult {
+                    VStack(alignment: .leading, spacing: StudioSpacing.xs) {
+                        HStack(spacing: StudioSpacing.sm) {
+                            Image(systemName: "waveform")
+                                .foregroundStyle(StudioColor.accent)
+                            Text("Voice Analysis")
+                                .font(StudioFont.captionStrong)
+                                .foregroundStyle(StudioColor.text)
+                            Spacer()
+                            Text(viewModel.vadElapsedLabel ?? "")
+                                .font(StudioFont.caption)
+                                .foregroundStyle(StudioColor.textSecondary)
+                        }
+
+                        alignmentRow(
+                            title: "Card 1 (source)",
+                            value: viewModel.vadSourceScoreLabel,
+                            systemImage: "1.circle",
+                            tone: result.sourceAverageScore > result.targetAverageScore ? .success : .neutral
+                        )
+                        alignmentRow(
+                            title: "Card 2 (target)",
+                            value: viewModel.vadTargetScoreLabel,
+                            systemImage: "2.circle",
+                            tone: result.targetAverageScore > result.sourceAverageScore ? .success : .neutral
+                        )
+                        alignmentRow(
+                            title: "Master timeline",
+                            value: viewModel.vadMasterSideLabel ?? "—",
+                            systemImage: "crown",
+                            tone: .info
+                        )
+                        alignmentRow(
+                            title: "Speech segments",
+                            value: "\(viewModel.vadSpeechSegmentCount)",
+                            systemImage: "bubble.left.and.bubble.right",
+                            tone: viewModel.vadSpeechSegmentCount > 0 ? .success : .warning
+                        )
+                    }
+                    .padding(.top, StudioSpacing.sm)
+                    .padding(.horizontal, StudioSpacing.xs)
+
+                    Divider()
+                        .padding(.vertical, 2)
+                }
+
+                if viewModel.showVADReminder {
+                    VStack(alignment: .leading, spacing: StudioSpacing.sm) {
+                        infoBanner(
+                            "Alignment confidence is low. Analyze the audio track with voice detection to improve timeline matching.",
+                            systemImage: "waveform.badge.exclamationmark"
+                        )
+                        Button {
+                            Task { await viewModel.analyzeWithVADAndRerunMerge() }
+                        } label: {
+                            Label("Analyze with Voice", systemImage: "waveform")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .controlSize(.small)
+                    }
+                    .padding(.top, StudioSpacing.sm)
+                }
+
+                if !viewModel.vadHasResult && !viewModel.isVADAnalysisRunning && !viewModel.showVADReminder,
+                   !viewModel.availableAudioTracks.isEmpty {
+                    HStack(spacing: StudioSpacing.sm) {
+                        Picker("Audio track", selection: $viewModel.selectedAudioTrackIndex) {
+                            ForEach(viewModel.availableAudioTracks) { track in
+                                Text(track.displayLabel).tag(track.index)
+                            }
+                        }
+                        .pickerStyle(.menu)
+                        .font(StudioFont.caption)
+
+                        Button {
+                            Task { await viewModel.analyzeWithVADAndRerunMerge() }
+                        } label: {
+                            Label("Analyze", systemImage: "waveform")
+                        }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
+                    }
+                    .padding(.top, StudioSpacing.sm)
                 }
             }
         }
