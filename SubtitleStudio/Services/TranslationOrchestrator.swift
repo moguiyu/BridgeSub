@@ -12,6 +12,8 @@ actor TranslationOrchestrator {
         let maxPromptCharacters: Int
         let customInstructions: String
         let episodeContext: String
+        let mediaTitle: String?
+        let mediaYear: Int?
         let keepNames: Bool
         let keepLocations: Bool
         let keepBrands: Bool
@@ -23,6 +25,55 @@ actor TranslationOrchestrator {
         let referenceSelection: ReferenceSubtitleSelection?
         let referenceDocument: SubtitleDocument?
         let referenceOverrideConfidenceThreshold: Double
+        let dualReference: DualReferenceSource?
+        let providerCapabilities: TranslationProviderCapabilities
+        let singlePassOverride: SinglePassPreference
+
+        init(
+            batchSize: Int,
+            maxRetries: Int,
+            maxPromptCharacters: Int,
+            customInstructions: String,
+            episodeContext: String,
+            mediaTitle: String? = nil,
+            mediaYear: Int? = nil,
+            keepNames: Bool,
+            keepLocations: Bool,
+            keepBrands: Bool,
+            maxLinesPerCue: Int,
+            targetCharactersPerLine: Int,
+            qualityProfile: TranslationQualityProfile,
+            passStrategy: TranslationPassStrategy,
+            strictness: TranslationStrictness,
+            referenceSelection: ReferenceSubtitleSelection?,
+            referenceDocument: SubtitleDocument?,
+            referenceOverrideConfidenceThreshold: Double,
+            dualReference: DualReferenceSource? = nil,
+            providerCapabilities: TranslationProviderCapabilities = TranslationProviderCapabilities(),
+            singlePassOverride: SinglePassPreference = .auto
+        ) {
+            self.batchSize = batchSize
+            self.maxRetries = maxRetries
+            self.maxPromptCharacters = maxPromptCharacters
+            self.customInstructions = customInstructions
+            self.episodeContext = episodeContext
+            self.mediaTitle = mediaTitle
+            self.mediaYear = mediaYear
+            self.keepNames = keepNames
+            self.keepLocations = keepLocations
+            self.keepBrands = keepBrands
+            self.maxLinesPerCue = maxLinesPerCue
+            self.targetCharactersPerLine = targetCharactersPerLine
+            self.qualityProfile = qualityProfile
+            self.passStrategy = passStrategy
+            self.strictness = strictness
+            self.referenceSelection = referenceSelection
+            self.referenceDocument = referenceDocument
+            self.referenceOverrideConfidenceThreshold = referenceOverrideConfidenceThreshold
+            self.dualReference = dualReference
+            self.providerCapabilities = providerCapabilities
+            self.singlePassOverride = singlePassOverride
+        }
 
         static let `default` = Config(
             batchSize: 50,
@@ -30,6 +81,8 @@ actor TranslationOrchestrator {
             maxPromptCharacters: 6_500,
             customInstructions: ProviderSettings.defaultTranslationCustomInstructions,
             episodeContext: "",
+            mediaTitle: nil,
+            mediaYear: nil,
             keepNames: true,
             keepLocations: true,
             keepBrands: false,
@@ -40,7 +93,10 @@ actor TranslationOrchestrator {
             strictness: .balanced,
             referenceSelection: nil,
             referenceDocument: nil,
-            referenceOverrideConfidenceThreshold: ProviderSettings().referenceOverrideConfidenceThreshold
+            referenceOverrideConfidenceThreshold: ProviderSettings().referenceOverrideConfidenceThreshold,
+            dualReference: nil,
+            providerCapabilities: TranslationProviderCapabilities(),
+            singlePassOverride: .auto
         )
     }
 
@@ -108,14 +164,56 @@ actor TranslationOrchestrator {
             from: sourceLanguage.displayName,
             to: targetLanguage.displayName
         )
-        let brief = buildTranslationBrief(cues: cues, episodeContext: config.episodeContext)
+        let brief = buildTranslationBrief(
+            cues: cues,
+            episodeContext: config.episodeContext,
+            mediaTitle: config.mediaTitle,
+            mediaYear: config.mediaYear
+        )
         let promptPolicy = buildPromptPolicy(config: config, to: targetLanguage)
+        let effectivePrimaryDocument = effectivePrimaryReferenceDocument(config: config)
         let referenceCueSpans = buildReferenceCueSpans(
             sourceCues: cues,
             sourceLanguage: sourceLanguage,
-            referenceDocument: config.referenceDocument
+            referenceDocument: effectivePrimaryDocument
         )
+        let secondaryCueSpans = buildSecondaryCueSpans(
+            sourceCues: cues,
+            sourceLanguage: sourceLanguage,
+            dualReference: config.dualReference
+        )
+        let alignmentSignal = buildAlignmentSignal(config: config, sourceCues: cues)
         let usesReviewPass = config.passStrategy != .draftOnly
+
+        if shouldUseSinglePassMode(
+            cues: cues,
+            results: initialResults,
+            startIndex: startIndex,
+            config: config,
+            brief: brief,
+            sourceLanguage: sourceLanguage,
+            targetLanguage: targetLanguage,
+            promptPolicy: promptPolicy,
+            referenceCueSpans: referenceCueSpans,
+            secondaryCueSpans: secondaryCueSpans,
+            alignmentSignal: alignmentSignal
+        ) {
+            return try await translateSinglePass(
+                cues: cues,
+                from: sourceLanguage,
+                to: targetLanguage,
+                initialResults: initialResults,
+                startIndex: startIndex,
+                config: config,
+                brief: brief,
+                promptPolicy: promptPolicy,
+                referenceCueSpans: referenceCueSpans,
+                secondaryCueSpans: secondaryCueSpans,
+                alignmentSignal: alignmentSignal,
+                controlHandler: controlHandler,
+                progressHandler: progressHandler
+            )
+        }
 
         var results = normalizeInitialResults(initialResults, totalCount: totalCount)
         var batchStart = min(max(startIndex, 0), totalCount)
@@ -132,7 +230,9 @@ actor TranslationOrchestrator {
                 from: sourceLanguage,
                 to: targetLanguage,
                 promptPolicy: promptPolicy,
-                referenceCueSpans: referenceCueSpans
+                referenceCueSpans: referenceCueSpans,
+                secondaryCueSpans: secondaryCueSpans,
+                alignmentSignal: alignmentSignal
             )
 
             let plannedRange = TranslationBatchRange(
@@ -156,6 +256,8 @@ actor TranslationOrchestrator {
                 brief: brief,
                 promptPolicy: promptPolicy,
                 referenceCueSpans: referenceCueSpans,
+                secondaryCueSpans: secondaryCueSpans,
+                alignmentSignal: alignmentSignal,
                 config: config
             )
 
@@ -264,6 +366,8 @@ actor TranslationOrchestrator {
         brief: TranslationBrief,
         promptPolicy: TranslationPromptPolicy,
         referenceCueSpans: [Int: NormalizedReferenceSpan],
+        secondaryCueSpans: [Int: NormalizedReferenceSpan],
+        alignmentSignal: AlignmentSignal,
         config: Config
     ) async throws -> BatchTranslationOutcome {
         var currentBatchRange = batchRange
@@ -283,6 +387,8 @@ actor TranslationOrchestrator {
                     brief: brief,
                     promptPolicy: promptPolicy,
                     referenceCueSpans: referenceCueSpans,
+                    secondaryCueSpans: secondaryCueSpans,
+                    alignmentSignal: alignmentSignal,
                     config: config,
                     prefersShorterSubtitles: prefersShorterSubtitles,
                     currentDraft: [],
@@ -313,13 +419,15 @@ actor TranslationOrchestrator {
                         brief: brief,
                         promptPolicy: promptPolicy,
                         referenceCueSpans: referenceCueSpans,
+                        secondaryCueSpans: secondaryCueSpans,
+                        alignmentSignal: alignmentSignal,
                         config: config,
                         prefersShorterSubtitles: prefersShorterSubtitles,
                         currentDraft: draftTranslations,
                         reviewReport: nil
                     )
                     let critiqueResponse = try await translationService.translate(critiqueRequest, settings: settings)
-                    reviewReport = try parseReviewReport(
+                    var parsedReport = try parseReviewReport(
                         critiqueResponse.content,
                         cues: cues,
                         batchRange: currentBatchRange,
@@ -327,6 +435,18 @@ actor TranslationOrchestrator {
                         referenceCueSpans: referenceCueSpans,
                         confidenceThreshold: config.referenceOverrideConfidenceThreshold
                     )
+                    if config.dualReference != nil {
+                        parsedReport = mergeCulturalAnchorFindings(
+                            into: parsedReport,
+                            cues: cues,
+                            batchRange: currentBatchRange,
+                            referenceCueSpans: referenceCueSpans,
+                            secondaryCueSpans: secondaryCueSpans,
+                            dualReference: config.dualReference,
+                            draftTranslations: draftTranslations
+                        )
+                    }
+                    reviewReport = parsedReport
 
                     let shouldRewrite: Bool
                     switch config.passStrategy {
@@ -349,6 +469,8 @@ actor TranslationOrchestrator {
                             brief: brief,
                             promptPolicy: promptPolicy,
                             referenceCueSpans: referenceCueSpans,
+                            secondaryCueSpans: secondaryCueSpans,
+                            alignmentSignal: alignmentSignal,
                             config: config,
                             prefersShorterSubtitles: prefersShorterSubtitles,
                             currentDraft: draftTranslations,
@@ -413,6 +535,8 @@ actor TranslationOrchestrator {
         brief: TranslationBrief,
         promptPolicy: TranslationPromptPolicy,
         referenceCueSpans: [Int: NormalizedReferenceSpan],
+        secondaryCueSpans: [Int: NormalizedReferenceSpan],
+        alignmentSignal: AlignmentSignal,
         config: Config,
         prefersShorterSubtitles: Bool,
         currentDraft: [String],
@@ -425,7 +549,8 @@ actor TranslationOrchestrator {
             promptPolicy: promptPolicy,
             brief: brief,
             config: config,
-            prefersShorterSubtitles: prefersShorterSubtitles
+            prefersShorterSubtitles: prefersShorterSubtitles,
+            hasSecondaryReference: !secondaryCueSpans.isEmpty
         )
 
         let userPrompt = buildUserPrompt(
@@ -435,6 +560,8 @@ actor TranslationOrchestrator {
             batchRange: batchRange,
             brief: brief,
             referenceCueSpans: referenceCueSpans,
+            secondaryCueSpans: secondaryCueSpans,
+            alignmentSignal: alignmentSignal,
             config: config,
             prefersShorterSubtitles: prefersShorterSubtitles,
             currentDraft: currentDraft,
@@ -468,7 +595,8 @@ actor TranslationOrchestrator {
         promptPolicy: TranslationPromptPolicy,
         brief: TranslationBrief,
         config: Config,
-        prefersShorterSubtitles: Bool
+        prefersShorterSubtitles: Bool,
+        hasSecondaryReference: Bool
     ) -> String {
         var lines: [String] = [promptPolicy.baseRole]
 
@@ -518,6 +646,14 @@ actor TranslationOrchestrator {
             lines.append("- \(brief.registerSummary)")
         }
 
+        if hasSecondaryReference {
+            lines.append("")
+            lines.append("CULTURAL ANCHOR ROLE:")
+            lines.append("- A secondary native-language reference is provided alongside the primary reference.")
+            lines.append("- Use the secondary line to detect cultural elements that the primary line may have neutralized (idiom, formality, humor, regional flavor).")
+            lines.append("- When critiquing, raise findings with kind 'culturalMismatch' for cues where the primary clearly drops cultural meaning that the secondary preserves.")
+        }
+
         if prefersShorterSubtitles {
             lines.append("- Retry mode: shorten wording, trim filler, and prioritize subtitle fit without changing meaning.")
         }
@@ -557,6 +693,8 @@ actor TranslationOrchestrator {
         batchRange: TranslationBatchRange,
         brief: TranslationBrief,
         referenceCueSpans: [Int: NormalizedReferenceSpan],
+        secondaryCueSpans: [Int: NormalizedReferenceSpan],
+        alignmentSignal: AlignmentSignal,
         config: Config,
         prefersShorterSubtitles: Bool,
         currentDraft: [String],
@@ -566,10 +704,27 @@ actor TranslationOrchestrator {
         let previousSource = neighboringSourceTexts(cues: cues, before: batchRange.startIndex)
         let upcomingSource = neighboringSourceTexts(cues: cues, after: batchRange.endIndex)
         let batchTexts = sourceTexts(in: cues, range: batchRange)
-        let referenceSpans = referenceSpans(in: cues, range: batchRange, referenceCueSpans: referenceCueSpans)
+        let primarySpansForBatch = referenceSpans(in: cues, range: batchRange, referenceCueSpans: referenceCueSpans)
+        let secondarySpansForBatch = referenceSpans(in: cues, range: batchRange, referenceCueSpans: secondaryCueSpans)
 
         var lines: [String] = []
         lines.append("TASK: \(passKind.rawValue.uppercased())")
+
+        if let mediaTitle = brief.mediaTitle?.trimmingCharacters(in: .whitespacesAndNewlines), !mediaTitle.isEmpty {
+            var context = "MEDIA CONTEXT: \(mediaTitle)"
+            if let year = brief.mediaYear {
+                context += " (\(year))"
+            }
+            context += " · \(config.qualityProfile.rawValue) profile"
+            lines.append("")
+            lines.append(context)
+        }
+
+        if let preamble = alignmentSignal.preamble {
+            lines.append("")
+            lines.append("ALIGNMENT QUALITY:")
+            lines.append(preamble)
+        }
 
         if !brief.episodeContext.isEmpty {
             lines.append("")
@@ -605,13 +760,30 @@ actor TranslationOrchestrator {
             lines.append("\(index): \(text)")
         }
 
-        if !referenceSpans.isEmpty {
+        if !primarySpansForBatch.isEmpty {
             lines.append("")
             lines.append("OPTIONAL TRUSTED REFERENCE SUBTITLE:")
-            for (index, span) in referenceSpans.sorted(by: { $0.key < $1.key }) {
+            for (index, span) in primarySpansForBatch.sorted(by: { $0.key < $1.key }) {
                 lines.append("\(index): [\(span.summaryLine)] \(span.text)")
             }
             lines.append("Use the reference only as supporting evidence unless confidence is high.")
+        }
+
+        if !secondarySpansForBatch.isEmpty {
+            lines.append("")
+            lines.append("NATIVE CULTURAL ANCHOR:")
+            let label = config.dualReference?.secondaryLabel.uppercased() ?? "NATIVE"
+            for (index, span) in secondarySpansForBatch.sorted(by: { $0.key < $1.key }) {
+                lines.append("\(index): [\(label) · confidence \(String(format: "%.2f", span.confidence))] \(span.text)")
+            }
+            switch alignmentSignal.tier {
+            case .high:
+                lines.append("Time-aligned with high confidence — treat as authoritative for cultural fidelity.")
+            case .mixed, .lowOrSkipped:
+                lines.append("Alignment is uncertain on some cues — treat cross-language cultural comparisons as suggestive only.")
+            case .none:
+                lines.append("Alignment was not performed — treat cultural comparisons as suggestive only.")
+            }
         }
 
         switch passKind {
@@ -677,7 +849,9 @@ actor TranslationOrchestrator {
         from sourceLanguage: LanguageOption,
         to targetLanguage: LanguageOption,
         promptPolicy: TranslationPromptPolicy,
-        referenceCueSpans: [Int: NormalizedReferenceSpan]
+        referenceCueSpans: [Int: NormalizedReferenceSpan],
+        secondaryCueSpans: [Int: NormalizedReferenceSpan],
+        alignmentSignal: AlignmentSignal
     ) -> Int {
         let remainingCount = cues.count - startIndex
         var batchSize = min(max(1, config.batchSize), remainingCount)
@@ -693,7 +867,9 @@ actor TranslationOrchestrator {
                 to: targetLanguage,
                 config: config,
                 promptPolicy: promptPolicy,
-                referenceCueSpans: referenceCueSpans
+                referenceCueSpans: referenceCueSpans,
+                secondaryCueSpans: secondaryCueSpans,
+                alignmentSignal: alignmentSignal
             )
             if estimatedSize <= config.maxPromptCharacters {
                 break
@@ -713,7 +889,9 @@ actor TranslationOrchestrator {
         to targetLanguage: LanguageOption,
         config: Config,
         promptPolicy: TranslationPromptPolicy,
-        referenceCueSpans: [Int: NormalizedReferenceSpan]
+        referenceCueSpans: [Int: NormalizedReferenceSpan],
+        secondaryCueSpans: [Int: NormalizedReferenceSpan],
+        alignmentSignal: AlignmentSignal
     ) -> Int {
         let draftRequest = buildTranslationRequest(
             passKind: .draft,
@@ -725,6 +903,8 @@ actor TranslationOrchestrator {
             brief: brief,
             promptPolicy: promptPolicy,
             referenceCueSpans: referenceCueSpans,
+            secondaryCueSpans: secondaryCueSpans,
+            alignmentSignal: alignmentSignal,
             config: config,
             prefersShorterSubtitles: false,
             currentDraft: [],
@@ -742,11 +922,19 @@ actor TranslationOrchestrator {
         return total
     }
 
-    private func buildTranslationBrief(cues: [SubtitleCue], episodeContext: String) -> TranslationBrief {
+    private func buildTranslationBrief(
+        cues: [SubtitleCue],
+        episodeContext: String,
+        mediaTitle: String?,
+        mediaYear: Int?
+    ) -> TranslationBrief {
+        let trimmedTitle = mediaTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
         return TranslationBrief(
             episodeContext: episodeContext.trimmingCharacters(in: .whitespacesAndNewlines),
             recurringTerms: extractRecurringTerms(from: cues),
-            registerSummary: summarizeRegister(for: cues)
+            registerSummary: summarizeRegister(for: cues),
+            mediaTitle: (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil,
+            mediaYear: mediaYear
         )
     }
 
@@ -1112,5 +1300,264 @@ actor TranslationOrchestrator {
         if overlongCount > max(1, sourceTexts.count / 3) {
             throw WorkflowError.runtime("Translation batch is too long for subtitle reading.")
         }
+    }
+
+    // MARK: - Dual reference helpers
+
+    struct AlignmentSignal: Sendable {
+        enum Tier: Sendable { case none, lowOrSkipped, mixed, high }
+        let tier: Tier
+        let preamble: String?
+    }
+
+    private func effectivePrimaryReferenceDocument(config: Config) -> SubtitleDocument? {
+        if let dual = config.dualReference {
+            return dual.outcome?.alignedReference ?? dual.primary
+        }
+        return config.referenceDocument
+    }
+
+    private func buildSecondaryCueSpans(
+        sourceCues: [SubtitleCue],
+        sourceLanguage: LanguageOption,
+        dualReference: DualReferenceSource?
+    ) -> [Int: NormalizedReferenceSpan] {
+        guard let dual = dualReference else { return [:] }
+        let secondaryDocument = dual.outcome?.alignedOriginal ?? dual.secondary
+        return buildReferenceCueSpans(
+            sourceCues: sourceCues,
+            sourceLanguage: sourceLanguage,
+            referenceDocument: secondaryDocument
+        )
+    }
+
+    private func buildAlignmentSignal(config: Config, sourceCues: [SubtitleCue]) -> AlignmentSignal {
+        guard let dual = config.dualReference else {
+            return AlignmentSignal(tier: .none, preamble: nil)
+        }
+        guard let outcome = dual.outcome else {
+            return AlignmentSignal(
+                tier: .lowOrSkipped,
+                preamble: "Pre-alignment unavailable — treat cross-language comparisons as suggestive only."
+            )
+        }
+        let threshold = dual.confidenceThreshold
+        let lowCount = sourceCues.reduce(0) { partial, cue in
+            let value = outcome.confidenceScores[cue.id] ?? 0
+            return value < threshold ? partial + 1 : partial
+        }
+        if outcome.usedVAD == false && lowCount == 0 {
+            return AlignmentSignal(
+                tier: .mixed,
+                preamble: "Cues aligned without VAD-based timing correction. Treat cultural comparisons as suggestive when cues seem off."
+            )
+        }
+        if lowCount == 0 {
+            return AlignmentSignal(
+                tier: .high,
+                preamble: "All cue pairs are time-aligned with confidence above threshold. You may fully trust that the primary and native lines correspond to the same spoken moment."
+            )
+        }
+        if Double(lowCount) / Double(max(sourceCues.count, 1)) > 0.25 {
+            return AlignmentSignal(
+                tier: .lowOrSkipped,
+                preamble: "Alignment confidence for many cues is low. Treat cross-language comparisons as suggestive, not definitive."
+            )
+        }
+        return AlignmentSignal(
+            tier: .mixed,
+            preamble: "Alignment confidence for some cues is low. Treat cross-language comparisons on those cues as suggestive."
+        )
+    }
+
+    private func mergeCulturalAnchorFindings(
+        into report: TranslationReviewReport,
+        cues: [SubtitleCue],
+        batchRange: TranslationBatchRange,
+        referenceCueSpans: [Int: NormalizedReferenceSpan],
+        secondaryCueSpans: [Int: NormalizedReferenceSpan],
+        dualReference: DualReferenceSource?,
+        draftTranslations: [String]
+    ) -> TranslationReviewReport {
+        guard let dual = dualReference, let outcome = dual.outcome else { return report }
+        let threshold = dual.confidenceThreshold
+        var added: [TranslationCueFinding] = []
+        let existingIndexes = Set(report.findings.filter { $0.kind == .culturalMismatch }.map(\.index))
+
+        for offset in 0..<batchRange.completedCount {
+            let globalIndex = batchRange.startIndex + offset
+            guard globalIndex >= 0, globalIndex < cues.count else { continue }
+            if existingIndexes.contains(globalIndex) { continue }
+            let cue = cues[globalIndex]
+            guard let primarySpan = referenceCueSpans[cue.id],
+                  let secondarySpan = secondaryCueSpans[cue.id] else { continue }
+            let cueConfidence = outcome.confidenceScores[cue.id] ?? 0
+            guard cueConfidence >= threshold else { continue }
+            let primaryNorm = normalizedAnchorText(primarySpan.text)
+            let secondaryNorm = normalizedAnchorText(secondarySpan.text)
+            guard !primaryNorm.isEmpty, !secondaryNorm.isEmpty else { continue }
+            let divergence = anchorDivergence(primary: primaryNorm, secondary: secondaryNorm)
+            guard divergence >= 0.55 else { continue }
+            let summarySuffix: String
+            if offset < draftTranslations.count {
+                let snippet = draftTranslations[offset].trimmingCharacters(in: .whitespacesAndNewlines)
+                summarySuffix = snippet.isEmpty ? "" : " Current draft: \(snippet)."
+            } else {
+                summarySuffix = ""
+            }
+            let message = "Primary (\(dual.primaryLabel)) appears to neutralize cultural content present in the native (\(dual.secondaryLabel)) line.\(summarySuffix)"
+            added.append(
+                TranslationCueFinding(
+                    index: globalIndex,
+                    severity: .minor,
+                    kind: .culturalMismatch,
+                    message: message,
+                    suggestedTranslation: nil,
+                    referenceDecision: .supportReference,
+                    confidence: cueConfidence
+                )
+            )
+        }
+
+        guard !added.isEmpty else { return report }
+        let merged = (report.findings + added).sorted { lhs, rhs in
+            if lhs.index == rhs.index { return lhs.confidence > rhs.confidence }
+            return lhs.index < rhs.index
+        }
+        return TranslationReviewReport(summary: report.summary, findings: merged)
+    }
+
+    private func normalizedAnchorText(_ text: String) -> String {
+        text
+            .lowercased()
+            .components(separatedBy: CharacterSet.alphanumerics.inverted)
+            .filter { !$0.isEmpty }
+            .joined(separator: " ")
+    }
+
+    private func anchorDivergence(primary: String, secondary: String) -> Double {
+        let primaryTokens = Set(primary.split(separator: " ").map(String.init))
+        let secondaryTokens = Set(secondary.split(separator: " ").map(String.init))
+        let unionCount = primaryTokens.union(secondaryTokens).count
+        guard unionCount > 0 else { return 0 }
+        let overlap = primaryTokens.intersection(secondaryTokens).count
+        return 1.0 - Double(overlap) / Double(unionCount)
+    }
+
+    // MARK: - Single-pass mode
+
+    private func shouldUseSinglePassMode(
+        cues: [SubtitleCue],
+        results: [String],
+        startIndex: Int,
+        config: Config,
+        brief: TranslationBrief,
+        sourceLanguage: LanguageOption,
+        targetLanguage: LanguageOption,
+        promptPolicy: TranslationPromptPolicy,
+        referenceCueSpans: [Int: NormalizedReferenceSpan],
+        secondaryCueSpans: [Int: NormalizedReferenceSpan],
+        alignmentSignal: AlignmentSignal
+    ) -> Bool {
+        if config.singlePassOverride == .disable { return false }
+        let totalCount = cues.count
+        guard startIndex < totalCount else { return false }
+        let contextTokens = config.providerCapabilities.contextWindowTokens
+        if config.singlePassOverride == .auto {
+            guard let context = contextTokens, context >= 500_000 else { return false }
+        }
+        if config.singlePassOverride == .force, contextTokens == nil { return false }
+
+        let totalRange = TranslationBatchRange(startIndex: startIndex, endIndex: totalCount - 1)
+        let estimatedChars = estimatedPromptCharacters(
+            cues: cues,
+            results: normalizeInitialResults(results, totalCount: totalCount),
+            batchRange: totalRange,
+            brief: brief,
+            from: sourceLanguage,
+            to: targetLanguage,
+            config: config,
+            promptPolicy: promptPolicy,
+            referenceCueSpans: referenceCueSpans,
+            secondaryCueSpans: secondaryCueSpans,
+            alignmentSignal: alignmentSignal
+        )
+        let estimatedTokens = estimatedChars / 3
+        let budget = contextTokens.map { Int(Double($0) * 0.6) } ?? .max
+        return estimatedTokens <= budget
+    }
+
+    private func translateSinglePass(
+        cues: [SubtitleCue],
+        from sourceLanguage: LanguageOption,
+        to targetLanguage: LanguageOption,
+        initialResults: [String],
+        startIndex: Int,
+        config: Config,
+        brief: TranslationBrief,
+        promptPolicy: TranslationPromptPolicy,
+        referenceCueSpans: [Int: NormalizedReferenceSpan],
+        secondaryCueSpans: [Int: NormalizedReferenceSpan],
+        alignmentSignal: AlignmentSignal,
+        controlHandler: @Sendable @escaping () async -> TranslationPendingControl?,
+        progressHandler: @Sendable @escaping (Progress) -> Void
+    ) async throws -> Outcome {
+        let totalCount = cues.count
+        var results = normalizeInitialResults(initialResults, totalCount: totalCount)
+        let plannedRange = TranslationBatchRange(startIndex: startIndex, endIndex: totalCount - 1)
+
+        let outcome = try await translateBatch(
+            cues: cues,
+            results: results,
+            batchRange: plannedRange,
+            from: sourceLanguage,
+            to: targetLanguage,
+            brief: brief,
+            promptPolicy: promptPolicy,
+            referenceCueSpans: referenceCueSpans,
+            secondaryCueSpans: secondaryCueSpans,
+            alignmentSignal: alignmentSignal,
+            config: config
+        )
+
+        let completedRange = outcome.batchRange
+        for (offset, text) in outcome.translated.enumerated() {
+            results[completedRange.startIndex + offset] = text
+        }
+
+        let aggregateReviewReport = (config.passStrategy != .draftOnly)
+            ? combinedReviewReport(from: outcome.reviewReport?.findings ?? [])
+            : nil
+
+        progressHandler(
+            Progress(
+                completed: completedRange.endIndex + 1,
+                total: totalCount,
+                partialResults: results,
+                activeBatchRange: completedRange,
+                lastCompletedBatchRange: completedRange,
+                brief: brief,
+                reviewReport: aggregateReviewReport,
+                statusMessage: "Single-pass translation complete (\(totalCount) cues)."
+            )
+        )
+
+        let controlState: OutcomeState
+        switch await controlHandler() {
+        case .pause: controlState = .paused
+        case .stop: controlState = .stopped
+        case .cancel: controlState = .cancelled
+        case nil: controlState = .completed
+        }
+
+        return Outcome(
+            state: controlState,
+            results: results,
+            completed: completedRange.endIndex + 1,
+            total: totalCount,
+            lastCompletedBatchRange: completedRange,
+            brief: brief,
+            reviewReport: aggregateReviewReport
+        )
     }
 }

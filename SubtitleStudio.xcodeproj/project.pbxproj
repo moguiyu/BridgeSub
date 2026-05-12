@@ -32,6 +32,7 @@
 		BE8400FE0F955DDA93B7B6E1 /* WorkflowViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02A1F55BB52009BF48C7FC79 /* WorkflowViewModel.swift */; };
 		C04787CB5FEC9C544BBAA1D5 /* TranslationOrchestrator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3AD3723823C5FE78A9ABDA78 /* TranslationOrchestrator.swift */; };
 		C5EC0344FC85A8A476E4196F /* AppEnvironment.swift in Sources */ = {isa = PBXBuildFile; fileRef = CE775A43F13CB7464C67158C /* AppEnvironment.swift */; };
+		C5FCAD44A2925E3A5EE524CD /* SubtitlePreAlignmentService.swift in Sources */ = {isa = PBXBuildFile; fileRef = CFBAD68644358E8252769992 /* SubtitlePreAlignmentService.swift */; };
 		E5B1CB5F624DF7DE89375661 /* OpenSubtitlesClient.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04AA07EAF99F18AA5F8B5FB3 /* OpenSubtitlesClient.swift */; };
 		E88EF4E032D32B105196160A /* SubtitleQualityService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C84886E0526FBC4F91B556D /* SubtitleQualityService.swift */; };
 		EEB70D66FFAF891ED2A2FFFF /* MediaToolRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 846739179ED3AD85648DDF31 /* MediaToolRegistry.swift */; };
@@ -66,6 +67,7 @@
 		A5B64B46D02288CF64B16C1B /* TranslationProviders.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationProviders.swift; sourceTree = "<group>"; };
 		A8E78AD23646D8A45B1257D2 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		CE775A43F13CB7464C67158C /* AppEnvironment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppEnvironment.swift; sourceTree = "<group>"; };
+		CFBAD68644358E8252769992 /* SubtitlePreAlignmentService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitlePreAlignmentService.swift; sourceTree = "<group>"; };
 		DDE3696422896C8D449093F9 /* MergePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergePipeline.swift; sourceTree = "<group>"; };
 		F1AEB2483EC96C8B458B0C05 /* StudioTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StudioTheme.swift; sourceTree = "<group>"; };
 		F3828246835FEF257F0E62F4 /* FFprobeMediaInspectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FFprobeMediaInspectionService.swift; sourceTree = "<group>"; };
@@ -191,6 +193,7 @@
 				346F1E204BF6575B74C85412 /* SubtitleAlignmentService.swift */,
 				4C6419FA41F966E25E9A57CC /* SubtitleInventoryService.swift */,
 				4658E9B82F957C22B2F6262A /* SubtitleMergeService.swift */,
+				CFBAD68644358E8252769992 /* SubtitlePreAlignmentService.swift */,
 				5C84886E0526FBC4F91B556D /* SubtitleQualityService.swift */,
 				3AD3723823C5FE78A9ABDA78 /* TranslationOrchestrator.swift */,
 			);
@@ -346,6 +349,7 @@
 				1107786B3883F0FD74450F79 /* SubtitleDocumentIO.swift in Sources */,
 				78CC3E550D8B9D954C84B164 /* SubtitleInventoryService.swift in Sources */,
 				99D856C2ABED0646A28562A7 /* SubtitleMergeService.swift in Sources */,
+				C5FCAD44A2925E3A5EE524CD /* SubtitlePreAlignmentService.swift in Sources */,
 				E88EF4E032D32B105196160A /* SubtitleQualityService.swift in Sources */,
 				BB865A30FDDA2FF34D069BEC /* SubtitleStudioApp.swift in Sources */,
 				7348C4830F7D0EFC49260162 /* SubtitleWorkspaceView.swift in Sources */,

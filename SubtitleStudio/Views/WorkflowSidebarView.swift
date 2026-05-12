@@ -158,7 +158,7 @@ private struct WorkflowStepList: View {
     }
 
     private var workflowSteps: [WorkflowStep] {
-        [
+        var steps: [WorkflowStep] = [
             WorkflowStep(
                 title: "Select video",
                 detail: viewModel.selectedVideoURL?.lastPathComponent ?? "Choose a local file to inspect",
@@ -180,7 +180,14 @@ private struct WorkflowStepList: View {
                 detail: cardDetail(for: 1),
                 state: cardState(for: 1),
                 focusCardIndex: 1
-            ),
+            )
+        ]
+
+        if let alignStep = alignAndSyncStep() {
+            steps.append(alignStep)
+        }
+
+        steps.append(contentsOf: [
             WorkflowStep(
                 title: "Quality gate",
                 detail: viewModel.qualityStatusMessage ?? "Quality check runs after both cards resolve.",
@@ -196,7 +203,44 @@ private struct WorkflowStepList: View {
                 detail: exportDetail,
                 state: exportState
             )
-        ]
+        ])
+        return steps
+    }
+
+    private func alignAndSyncStep() -> WorkflowStep? {
+        guard !viewModel.cards.isEmpty else { return nil }
+        let cardsWithAnyReference = viewModel.cards.indices.filter { index in
+            viewModel.cards[index].translateState.referenceCandidateID != nil
+                || viewModel.cards[index].translateState.secondaryReferenceCandidateID != nil
+        }
+        guard let firstCardIndex = cardsWithAnyReference.first else { return nil }
+
+        let state = viewModel.preAlignmentState(forCardIndex: firstCardIndex)
+        let summary = viewModel.preAlignmentSummary(forCardIndex: firstCardIndex)
+        let stepState: WorkflowStepState
+        let detail: String
+        switch state {
+        case .idle:
+            stepState = .upcoming
+            detail = summary.isEmpty
+                ? "Add a secondary reference to align it with the primary."
+                : summary
+        case .running:
+            stepState = .current
+            detail = summary.isEmpty ? "Aligning subtitles…" : summary
+        case .completed:
+            stepState = .done
+            detail = summary.isEmpty ? "Alignment ready." : summary
+        case .failed(let message):
+            stepState = .warning
+            detail = message
+        }
+        return WorkflowStep(
+            title: "Align & Sync",
+            detail: detail,
+            state: stepState,
+            focusCardIndex: firstCardIndex
+        )
     }
 
     private var inspectionDetail: String {

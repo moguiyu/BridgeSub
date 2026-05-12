@@ -84,6 +84,14 @@ protocol OpenSubtitlesServicing: Sendable {
     func downloadSubtitle(subtitleID: String) async throws -> URL
 }
 
+protocol SubtitlePreAlignmentServicing: Sendable {
+    func preAlign(
+        native: SubtitleDocument,
+        reference: SubtitleDocument,
+        vadResult: VADArbitrationResult?
+    ) async throws -> PreAlignmentOutcome
+}
+
 protocol TranslationServicing: Sendable {
     var kind: TranslationProviderKind { get }
     var capabilities: TranslationProviderCapabilities { get }

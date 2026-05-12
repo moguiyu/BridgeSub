@@ -7,6 +7,7 @@ struct AppEnvironment {
     let subtitleIOService: any SubtitleDocumentIOServicing
     let mergeService: any SubtitleMergingServicing
     let vadService: any VADServicing
+    let preAlignmentService: any SubtitlePreAlignmentServicing
     let qualityService: any SubtitleQualityScoringServicing
     let exportService: any SubtitleExportServicing
     let mkvEmbeddingService: any MKVEmbeddingServicing
@@ -36,6 +37,7 @@ struct AppEnvironment {
             ),
             mergeService: mergeService,
             vadService: SileroVADService(processRunner: processRunner, toolRegistry: toolRegistry),
+            preAlignmentService: SubtitlePreAlignmentService(),
             qualityService: qualityService,
             exportService: SubtitleExportService(),
             mkvEmbeddingService: MKVEmbeddingService(

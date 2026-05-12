@@ -633,22 +633,105 @@ struct TranslationProviderCapabilities: Equatable, Sendable {
     var supportsStreamingProgress: Bool = false
     var supportsImmediateCancellation: Bool = false
     var supportsPromptCacheHints: Bool = false
+    var contextWindowTokens: Int? = nil
 }
 
 struct TranslationBrief: Equatable, Sendable {
     let episodeContext: String
     let recurringTerms: [String]
     let registerSummary: String
+    let mediaTitle: String?
+    let mediaYear: Int?
+
+    init(
+        episodeContext: String,
+        recurringTerms: [String],
+        registerSummary: String,
+        mediaTitle: String? = nil,
+        mediaYear: Int? = nil
+    ) {
+        self.episodeContext = episodeContext
+        self.recurringTerms = recurringTerms
+        self.registerSummary = registerSummary
+        self.mediaTitle = mediaTitle
+        self.mediaYear = mediaYear
+    }
 
     var hasContent: Bool {
-        !episodeContext.isEmpty || !recurringTerms.isEmpty || !registerSummary.isEmpty
+        !episodeContext.isEmpty
+            || !recurringTerms.isEmpty
+            || !registerSummary.isEmpty
+            || (mediaTitle?.isEmpty == false)
     }
+}
+
+enum SinglePassPreference: String, Codable, Sendable {
+    case auto
+    case force
+    case disable
+}
+
+struct PreAlignmentOutcome: Equatable, Sendable {
+    let alignedOriginal: SubtitleDocument
+    let alignedReference: SubtitleDocument
+    let confidenceScores: [Int: Double]
+    let appliedOffsetMs: Int
+    let usedVAD: Bool
+
+    var matchedCueCount: Int {
+        confidenceScores.values.filter { $0 >= 0.58 }.count
+    }
+
+    var lowConfidenceCueCount: Int {
+        confidenceScores.values.filter { $0 > 0 && $0 < 0.58 }.count
+    }
+
+    var averageConfidence: Double {
+        guard !confidenceScores.isEmpty else { return 0 }
+        return confidenceScores.values.reduce(0, +) / Double(confidenceScores.count)
+    }
+}
+
+struct DualReferenceSource: Equatable, Sendable {
+    let primary: SubtitleDocument
+    let secondary: SubtitleDocument
+    let primaryLabel: String
+    let secondaryLabel: String
+    let outcome: PreAlignmentOutcome?
+    let confidenceThreshold: Double
+
+    init(
+        primary: SubtitleDocument,
+        secondary: SubtitleDocument,
+        primaryLabel: String,
+        secondaryLabel: String,
+        outcome: PreAlignmentOutcome? = nil,
+        confidenceThreshold: Double = 0.82
+    ) {
+        self.primary = primary
+        self.secondary = secondary
+        self.primaryLabel = primaryLabel
+        self.secondaryLabel = secondaryLabel
+        self.outcome = outcome
+        self.confidenceThreshold = confidenceThreshold
+    }
+}
+
+enum PreAlignmentState: Equatable, Sendable {
+    case idle
+    case running
+    case completed(PreAlignmentOutcome)
+    case failed(String)
 }
 
 struct TranslateState: Equatable, Sendable {
     var providerPresetID: TranslationProviderPresetID = .ollama
     var sourceCandidateID: String?
     var referenceCandidateID: String?
+    var secondaryReferenceCandidateID: String?
+    var mediaTitle: String = ""
+    var mediaYear: Int?
+    var singlePassPreference: SinglePassPreference = .auto
     var episodeContext: String = ""
     var jobState: TranslationJobState = .idle
     var completedCueCount: Int = 0
@@ -662,6 +745,8 @@ struct TranslateState: Equatable, Sendable {
     var translatedDocument: SubtitleDocument?
     var referenceWarningMessage: String = ""
     var referenceAlignmentSummary: String = ""
+    var preAlignmentState: PreAlignmentState = .idle
+    var preAlignmentSummary: String = ""
     var reviewReport: TranslationReviewReport?
     var reviewSummary: String = ""
     var flaggedCueCount: Int = 0

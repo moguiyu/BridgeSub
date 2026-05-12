@@ -35,3 +35,12 @@ enum MergeEvent {
 enum QualityEvent {
     case evaluationComplete(report: SubtitleQualityReport)
 }
+
+// MARK: - Pre-Alignment Events
+
+enum PreAlignmentEvent: Sendable {
+    case started
+    case skipped(reason: String)
+    case completed(outcome: PreAlignmentOutcome)
+    case failed(reason: String)
+}

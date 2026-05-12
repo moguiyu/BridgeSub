@@ -239,13 +239,13 @@ struct SubtitleWorkspaceView: View {
             .pickerStyle(.menu)
             .disabled(viewModel.isTranslationLocked(forCardIndex: cardIndex) || currentCard.translateState.isTranslating)
 
-            pickerSectionLabel("Reference From")
+            pickerSectionLabel("Primary Reference (Translation Pivot)")
             Picker(
                 "",
                 selection: Binding(
                     get: { currentCard.translateState.referenceCandidateID },
                     set: { newValue in
-                        viewModel.cards[cardIndex].translateState.referenceCandidateID = newValue
+                        viewModel.setPrimaryReference(newValue, forCardIndex: cardIndex)
                         if newValue == nil {
                             viewModel.cards[cardIndex].translateState.referenceWarningMessage = ""
                             viewModel.cards[cardIndex].translateState.usedReferenceSelection = nil
@@ -266,13 +266,94 @@ struct SubtitleWorkspaceView: View {
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else if currentCard.translateState.referenceCandidateID == nil {
-                Text("Select an optional reference subtitle to enable QA assist. Leave it on None for source-only translation.")
+                Text("The primary reference is the high-trust semantic pivot the LLM consults while generating the target translation. Leave on None for source-only translation.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             } else {
-                Text("The selected reference subtitle is used only as supporting evidence during QA and rewrite.")
+                Text("Used by the LLM as the main source of meaning for translation. Pair with a secondary cultural anchor below to flag culturally neutralized lines.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+            }
+
+            let secondaryOptions = viewModel.translationSecondaryReferenceOptions(forCardIndex: cardIndex)
+            pickerSectionLabel("Secondary Reference (Cultural Anchor)")
+            Picker(
+                "",
+                selection: Binding(
+                    get: { currentCard.translateState.secondaryReferenceCandidateID },
+                    set: { newValue in
+                        viewModel.setSecondaryReference(newValue, forCardIndex: cardIndex)
+                    }
+                )
+            ) {
+                Text("None").tag(nil as String?)
+                ForEach(secondaryOptions) { option in
+                    Text(option.translationSourceLabel).tag(option.id as String?)
+                }
+            }
+            .pickerStyle(.menu)
+            .disabled(
+                viewModel.isTranslationLocked(forCardIndex: cardIndex)
+                    || currentCard.translateState.isTranslating
+                    || currentCard.translateState.referenceCandidateID == nil
+            )
+
+            if currentCard.translateState.secondaryReferenceCandidateID == nil {
+                Text("Optional native-language subtitle (e.g. the original language of the dialogue). When set, BridgeSub aligns it to the primary and flags cues where the primary may have neutralized cultural flavor.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                let summary = viewModel.preAlignmentSummary(forCardIndex: cardIndex)
+                if !summary.isEmpty {
+                    Text(summary)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+                if case .failed(let message) = viewModel.preAlignmentState(forCardIndex: cardIndex) {
+                    Text(message)
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+            }
+
+            pickerSectionLabel("Media Title (Optional)")
+            TextField(
+                "e.g. Parasite",
+                text: Binding(
+                    get: { viewModel.mediaTitle(forCardIndex: cardIndex) },
+                    set: { viewModel.setMediaTitle($0, forCardIndex: cardIndex) }
+                )
+            )
+            .textFieldStyle(.roundedBorder)
+            .font(.caption)
+            .disabled(viewModel.isTranslationLocked(forCardIndex: cardIndex) || currentCard.translateState.isTranslating)
+
+            Text("Including the title (and year) consistently improves LLM subtitle translation quality (research-backed). Leave empty if unknown.")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+                .fixedSize(horizontal: false, vertical: true)
+
+            let contextTokens = viewModel.environmentContextWindowTokens(forCardIndex: cardIndex)
+            if contextTokens != nil {
+                pickerSectionLabel("Single-Pass Mode")
+                Picker(
+                    "",
+                    selection: Binding(
+                        get: { viewModel.singlePassPreference(forCardIndex: cardIndex) },
+                        set: { viewModel.setSinglePassPreference($0, forCardIndex: cardIndex) }
+                    )
+                ) {
+                    Text("Auto").tag(SinglePassPreference.auto)
+                    Text("Force").tag(SinglePassPreference.force)
+                    Text("Off").tag(SinglePassPreference.disable)
+                }
+                .pickerStyle(.segmented)
+                .disabled(viewModel.isTranslationLocked(forCardIndex: cardIndex) || currentCard.translateState.isTranslating)
+
+                Text("Sends all cues in a single LLM request when the provider has ≥500K-token context. Eliminates batch-boundary continuity drift.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             }
 
             pickerSectionLabel("Provider")

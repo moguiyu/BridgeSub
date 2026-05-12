@@ -87,6 +87,9 @@ final class WorkflowViewModel {
     private var translationTask: Task<Void, Never>?
     private var activeTranslationCardIndex: Int?
     private var mergedDocumentCache: [String: MergedSubtitleDocument] = [:]
+    private var preAlignmentTasks: [Int: Task<Void, Never>] = [:]
+    private var preAlignmentTokens: [Int: UUID] = [:]
+    private var dualReferenceCache: [Int: DualReferenceSource] = [:]
 
     init(environment: AppEnvironment) {
         self.environment = environment
@@ -569,6 +572,200 @@ final class WorkflowViewModel {
             return "Reference subtitle: \(selection.sourceLabel)"
         }
         return "Reference subtitle: \(selection.sourceLabel) · \(summary)"
+    }
+
+    func translationSecondaryReferenceOptions(forCardIndex cardIndex: Int) -> [SubtitleCandidate] {
+        guard cards.indices.contains(cardIndex) else { return [] }
+        let primaryID = cards[cardIndex].translateState.referenceCandidateID
+        return translationReferenceOptions(forCardIndex: cardIndex)
+            .filter { $0.id != primaryID }
+    }
+
+    func primaryReferenceCandidateID(forCardIndex cardIndex: Int) -> String? {
+        cards.indices.contains(cardIndex) ? cards[cardIndex].translateState.referenceCandidateID : nil
+    }
+
+    func setPrimaryReference(_ candidateID: String?, forCardIndex cardIndex: Int) {
+        guard cards.indices.contains(cardIndex) else { return }
+        cards[cardIndex].translateState.referenceCandidateID = candidateID
+        if cards[cardIndex].translateState.secondaryReferenceCandidateID == candidateID {
+            cards[cardIndex].translateState.secondaryReferenceCandidateID = nil
+        }
+        invalidatePreAlignment(forCardIndex: cardIndex)
+        schedulePreAlignmentIfReady(forCardIndex: cardIndex)
+    }
+
+    func secondaryReferenceCandidateID(forCardIndex cardIndex: Int) -> String? {
+        cards.indices.contains(cardIndex) ? cards[cardIndex].translateState.secondaryReferenceCandidateID : nil
+    }
+
+    func setSecondaryReference(_ candidateID: String?, forCardIndex cardIndex: Int) {
+        guard cards.indices.contains(cardIndex) else { return }
+        cards[cardIndex].translateState.secondaryReferenceCandidateID = candidateID
+        invalidatePreAlignment(forCardIndex: cardIndex)
+        schedulePreAlignmentIfReady(forCardIndex: cardIndex)
+    }
+
+    func mediaTitle(forCardIndex cardIndex: Int) -> String {
+        cards.indices.contains(cardIndex) ? cards[cardIndex].translateState.mediaTitle : ""
+    }
+
+    func setMediaTitle(_ title: String, forCardIndex cardIndex: Int) {
+        guard cards.indices.contains(cardIndex) else { return }
+        cards[cardIndex].translateState.mediaTitle = title
+    }
+
+    func mediaYear(forCardIndex cardIndex: Int) -> Int? {
+        cards.indices.contains(cardIndex) ? cards[cardIndex].translateState.mediaYear : nil
+    }
+
+    func setMediaYear(_ year: Int?, forCardIndex cardIndex: Int) {
+        guard cards.indices.contains(cardIndex) else { return }
+        cards[cardIndex].translateState.mediaYear = year
+    }
+
+    func singlePassPreference(forCardIndex cardIndex: Int) -> SinglePassPreference {
+        cards.indices.contains(cardIndex) ? cards[cardIndex].translateState.singlePassPreference : .auto
+    }
+
+    func setSinglePassPreference(_ pref: SinglePassPreference, forCardIndex cardIndex: Int) {
+        guard cards.indices.contains(cardIndex) else { return }
+        cards[cardIndex].translateState.singlePassPreference = pref
+    }
+
+    func environmentContextWindowTokens(forCardIndex cardIndex: Int) -> Int? {
+        guard cards.indices.contains(cardIndex) else { return nil }
+        let providerID = cards[cardIndex].translateState.providerPresetID
+        guard let service = environment.translationProviders[providerSettings.configuration(for: providerID).transportKind] else {
+            return nil
+        }
+        return service.capabilities.contextWindowTokens
+    }
+
+    func preAlignmentState(forCardIndex cardIndex: Int) -> PreAlignmentState {
+        cards.indices.contains(cardIndex) ? cards[cardIndex].translateState.preAlignmentState : .idle
+    }
+
+    func preAlignmentSummary(forCardIndex cardIndex: Int) -> String {
+        cards.indices.contains(cardIndex) ? cards[cardIndex].translateState.preAlignmentSummary : ""
+    }
+
+    private func invalidatePreAlignment(forCardIndex cardIndex: Int) {
+        preAlignmentTasks[cardIndex]?.cancel()
+        preAlignmentTasks[cardIndex] = nil
+        preAlignmentTokens[cardIndex] = nil
+        dualReferenceCache[cardIndex] = nil
+        if cards.indices.contains(cardIndex) {
+            cards[cardIndex].translateState.preAlignmentState = .idle
+            cards[cardIndex].translateState.preAlignmentSummary = ""
+        }
+    }
+
+    private func schedulePreAlignmentIfReady(forCardIndex cardIndex: Int) {
+        guard cards.indices.contains(cardIndex) else { return }
+        guard let primaryID = cards[cardIndex].translateState.referenceCandidateID,
+              let secondaryID = cards[cardIndex].translateState.secondaryReferenceCandidateID,
+              !primaryID.isEmpty,
+              !secondaryID.isEmpty else {
+            return
+        }
+        guard let videoURL = selectedVideoURL else { return }
+
+        let token = UUID()
+        preAlignmentTokens[cardIndex] = token
+        cards[cardIndex].translateState.preAlignmentState = .running
+        cards[cardIndex].translateState.preAlignmentSummary = "Aligning subtitles…"
+
+        preAlignmentTasks[cardIndex] = Task { [weak self] in
+            guard let self else { return }
+            await self.runPreAlignment(
+                forCardIndex: cardIndex,
+                primaryID: primaryID,
+                secondaryID: secondaryID,
+                videoURL: videoURL,
+                token: token
+            )
+        }
+    }
+
+    private func runPreAlignment(
+        forCardIndex cardIndex: Int,
+        primaryID: String,
+        secondaryID: String,
+        videoURL: URL,
+        token: UUID
+    ) async {
+        let options = await MainActor.run { self.translationReferenceOptions(forCardIndex: cardIndex) }
+        guard let primaryCandidate = options.first(where: { $0.id == primaryID }),
+              let secondaryCandidate = options.first(where: { $0.id == secondaryID }) else {
+            await MainActor.run {
+                guard self.preAlignmentTokens[cardIndex] == token else { return }
+                self.cards[cardIndex].translateState.preAlignmentState = .failed("Selected reference subtitle is no longer available.")
+                self.cards[cardIndex].translateState.preAlignmentSummary = "Pre-alignment skipped."
+            }
+            return
+        }
+
+        do {
+            let ioService = environment.subtitleIOService
+            async let primaryLoad = Task.detached { try await ioService.loadDocument(for: primaryCandidate, videoURL: videoURL) }.value
+            async let secondaryLoad = Task.detached { try await ioService.loadDocument(for: secondaryCandidate, videoURL: videoURL) }.value
+            let primaryDocument = try await primaryLoad
+            let secondaryDocument = try await secondaryLoad
+
+            let vadResult = await MainActor.run { self.lastVADResult }
+
+            let outcome = try await environment.preAlignmentService.preAlign(
+                native: secondaryDocument,
+                reference: primaryDocument,
+                vadResult: vadResult
+            )
+
+            await MainActor.run {
+                guard self.preAlignmentTokens[cardIndex] == token else { return }
+                let dual = DualReferenceSource(
+                    primary: primaryDocument,
+                    secondary: secondaryDocument,
+                    primaryLabel: primaryDocument.language.code,
+                    secondaryLabel: secondaryDocument.language.code,
+                    outcome: outcome,
+                    confidenceThreshold: self.providerSettings.referenceOverrideConfidenceThreshold
+                )
+                self.dualReferenceCache[cardIndex] = dual
+                self.cards[cardIndex].translateState.preAlignmentState = .completed(outcome)
+                self.cards[cardIndex].translateState.preAlignmentSummary = self.summarizePreAlignment(outcome: outcome)
+            }
+        } catch {
+            await MainActor.run {
+                guard self.preAlignmentTokens[cardIndex] == token else { return }
+                let message = "Pre-alignment failed: \(error.localizedDescription). Cultural checks will be less precise."
+                self.cards[cardIndex].translateState.preAlignmentState = .failed(message)
+                self.cards[cardIndex].translateState.preAlignmentSummary = "Pre-alignment failed."
+                self.dualReferenceCache[cardIndex] = nil
+            }
+        }
+    }
+
+    private func summarizePreAlignment(outcome: PreAlignmentOutcome) -> String {
+        let totalCount = outcome.confidenceScores.count
+        let matchedPercent: Int
+        if totalCount > 0 {
+            matchedPercent = Int((Double(outcome.matchedCueCount) / Double(totalCount) * 100).rounded())
+        } else {
+            matchedPercent = 0
+        }
+        var parts = ["\(matchedPercent)% matched"]
+        if outcome.usedVAD {
+            if outcome.appliedOffsetMs != 0 {
+                let sign = outcome.appliedOffsetMs >= 0 ? "+" : ""
+                parts.append("\(sign)\(outcome.appliedOffsetMs) ms offset corrected")
+            } else {
+                parts.append("VAD verified timing")
+            }
+        } else {
+            parts.append("VAD unavailable")
+        }
+        return parts.joined(separator: " · ")
     }
 
     func translationModelName(forCardIndex cardIndex: Int) -> String {
@@ -1427,12 +1624,17 @@ final class WorkflowViewModel {
                 }
 
                 let config = await MainActor.run {
-                    TranslationOrchestrator.Config(
+                    let dualReference = self.dualReferenceCache[cardIndex]
+                    let mediaTitle = self.cards[cardIndex].translateState.mediaTitle
+                    let trimmedTitle = mediaTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                    return TranslationOrchestrator.Config(
                         batchSize: effectiveSettings.translationBatchSize,
                         maxRetries: 2,
                         maxPromptCharacters: 6_500,
                         customInstructions: effectiveSettings.translationCustomInstructions,
                         episodeContext: self.cards[cardIndex].translateState.episodeContext,
+                        mediaTitle: trimmedTitle.isEmpty ? nil : trimmedTitle,
+                        mediaYear: self.cards[cardIndex].translateState.mediaYear,
                         keepNames: effectiveSettings.translationKeepNames,
                         keepLocations: effectiveSettings.translationKeepLocations,
                         keepBrands: effectiveSettings.translationKeepBrands,
@@ -1443,7 +1645,10 @@ final class WorkflowViewModel {
                         strictness: effectiveSettings.translationStrictness,
                         referenceSelection: referenceResolution.selection,
                         referenceDocument: referenceResolution.document,
-                        referenceOverrideConfidenceThreshold: effectiveSettings.referenceOverrideConfidenceThreshold
+                        referenceOverrideConfidenceThreshold: effectiveSettings.referenceOverrideConfidenceThreshold,
+                        dualReference: dualReference,
+                        providerCapabilities: translationService.capabilities,
+                        singlePassOverride: self.cards[cardIndex].translateState.singlePassPreference
                     )
                 }
 
