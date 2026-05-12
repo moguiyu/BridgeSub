@@ -4,7 +4,7 @@ import OSLog
 struct SileroVADService: VADServicing {
     private let processRunner: ProcessRunner
     private let toolRegistry: MediaToolRegistry
-    private let logger = Logger(subsystem: "com.xiaodong.SubtitleStudio", category: "VAD")
+    private let logger = Logger(subsystem: "com.xiaodong.BridgeSub", category: "VAD")
 
     private let adPatterns: [String] = [
         "yts", "yify", "downloaded from", "official",
