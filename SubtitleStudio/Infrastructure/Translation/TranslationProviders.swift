@@ -4,6 +4,7 @@ struct OllamaTranslationService: TranslationServicing {
     let kind: TranslationProviderKind = .ollama
     let capabilities = TranslationProviderCapabilities()
 
+    private let logger = TranslationLogger()
     private let session: URLSession
     private let credentialStore: any CredentialStore
 
@@ -21,11 +22,14 @@ struct OllamaTranslationService: TranslationServicing {
 
     func validateConfiguration(settings: ProviderSettings) throws {
         guard URL(string: settings.ollamaBaseURL) != nil else {
+            logger.configurationInvalid(reason: "Ollama base URL is invalid")
             throw WorkflowError.credentialsMissing("Ollama base URL is invalid.")
         }
         guard !settings.ollamaModel.isEmpty else {
+            logger.configurationInvalid(reason: "Ollama model name is empty")
             throw WorkflowError.credentialsMissing("Choose a local model for Ollama.")
         }
+        logger.configurationValidated(provider: "ollama", model: settings.ollamaModel)
     }
 
     func translate(_ request: TranslationRequest, settings: ProviderSettings) async throws -> TranslationResponse {
@@ -168,6 +172,7 @@ struct OpenAICompatibleTranslationService: TranslationServicing {
         supportsPromptCacheHints: true
     )
 
+    private let logger = TranslationLogger()
     private let session: URLSession
     private let credentialStore: any CredentialStore
 
@@ -178,15 +183,19 @@ struct OpenAICompatibleTranslationService: TranslationServicing {
 
     func validateConfiguration(settings: ProviderSettings) throws {
         guard URL(string: settings.openAIBaseURL) != nil else {
+            logger.configurationInvalid(reason: "OpenAI-compatible base URL is invalid")
             throw WorkflowError.credentialsMissing("OpenAI-compatible base URL is invalid.")
         }
         guard !settings.openAIModel.isEmpty else {
+            logger.configurationInvalid(reason: "Cloud model name is empty")
             throw WorkflowError.credentialsMissing("Choose a cloud model.")
         }
         let apiKey = try loadAPIKey(settings: settings)
         guard let apiKey, !apiKey.isEmpty else {
+            logger.configurationInvalid(reason: "Cloud API key is missing from keychain")
             throw WorkflowError.credentialsMissing("Cloud API key is missing from the keychain.")
         }
+        logger.configurationValidated(provider: "openAICompatible", model: settings.openAIModel)
     }
 
     func translate(_ translationRequest: TranslationRequest, settings: ProviderSettings) async throws -> TranslationResponse {
