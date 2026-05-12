@@ -1,4 +1,5 @@
 import Foundation
+import OSLog
 
 actor TranslationOrchestrator {
     private let translationService: any TranslationServicing
@@ -82,6 +83,9 @@ actor TranslationOrchestrator {
         self.settings = settings
     }
 
+    private let translationLogger = TranslationLogger()
+    private var totalRetries = 0
+
     func translate(
         cues: [SubtitleCue],
         from sourceLanguage: LanguageOption,
@@ -93,6 +97,17 @@ actor TranslationOrchestrator {
         progressHandler: @Sendable @escaping (Progress) -> Void
     ) async throws -> Outcome {
         let totalCount = cues.count
+        let clock = ContinuousClock()
+        let overallStartTime = clock.now
+        totalRetries = 0
+        let modelName = translationService.kind == .ollama ? settings.ollamaModel : settings.openAIModel
+        translationLogger.translationStarted(
+            provider: translationService.kind.displayName,
+            model: modelName,
+            totalCues: totalCount,
+            from: sourceLanguage.displayName,
+            to: targetLanguage.displayName
+        )
         let brief = buildTranslationBrief(cues: cues, episodeContext: config.episodeContext)
         let promptPolicy = buildPromptPolicy(config: config, to: targetLanguage)
         let referenceCueSpans = buildReferenceCueSpans(
@@ -125,6 +140,13 @@ actor TranslationOrchestrator {
                 endIndex: min(batchStart + plannedBatchSize, totalCount) - 1
             )
 
+            let batchStartTime = clock.now
+            translationLogger.batchStarted(
+                range: "\(plannedRange.startIndex)-\(plannedRange.endIndex)",
+                cueCount: plannedRange.completedCount,
+                passKind: "draft"
+            )
+
             let batchOutcome = try await translateBatch(
                 cues: cues,
                 results: results,
@@ -145,6 +167,13 @@ actor TranslationOrchestrator {
             }
 
             lastCompletedBatchRange = completedRange
+            let batchDuration = batchStartTime.duration(to: clock.now)
+            translationLogger.batchCompleted(
+                range: "\(completedRange.startIndex)-\(completedRange.endIndex)",
+                duration: batchDuration,
+                cuesTranslated: batchOutcome.translated.count,
+                passStrategy: String(describing: config.passStrategy)
+            )
             if let report = batchOutcome.reviewReport {
                 aggregatedFindings.append(contentsOf: report.findings)
             }
@@ -168,6 +197,7 @@ actor TranslationOrchestrator {
 
             switch await controlHandler() {
             case .pause:
+                translationLogger.translationCancelled(reason: "paused")
                 return Outcome(
                     state: .paused,
                     results: results,
@@ -178,6 +208,7 @@ actor TranslationOrchestrator {
                     reviewReport: aggregateReviewReport
                 )
             case .stop:
+                translationLogger.translationCancelled(reason: "stopped")
                 return Outcome(
                     state: .stopped,
                     results: results,
@@ -188,6 +219,7 @@ actor TranslationOrchestrator {
                     reviewReport: aggregateReviewReport
                 )
             case .cancel:
+                translationLogger.translationCancelled(reason: "cancelled")
                 return Outcome(
                     state: .cancelled,
                     results: results,
@@ -204,6 +236,14 @@ actor TranslationOrchestrator {
             batchStart = completedCount
         }
 
+        let overallDuration = overallStartTime.duration(to: clock.now)
+        let batchCount = Int(ceil(Double(totalCount) / Double(config.batchSize)))
+        translationLogger.translationCompleted(
+            totalCues: totalCount,
+            duration: overallDuration,
+            batches: batchCount,
+            retries: totalRetries
+        )
         return Outcome(
             state: .completed,
             results: results,
@@ -335,11 +375,13 @@ actor TranslationOrchestrator {
             } catch {
                 if !prefersShorterSubtitles {
                     prefersShorterSubtitles = true
+                    translationLogger.retryAttempt(retryCount + 1, reason: "validation or parse failure", strategy: "shorterSubtitles")
                     continue
                 }
 
                 if currentBatchRange.completedCount > 1 {
                     let reducedCount = max(1, currentBatchRange.completedCount / 2)
+                    translationLogger.retryAttempt(retryCount + 1, reason: "batch too large", strategy: "halvedBatch(\(reducedCount))")
                     currentBatchRange = TranslationBatchRange(
                         startIndex: currentBatchRange.startIndex,
                         endIndex: currentBatchRange.startIndex + reducedCount - 1
@@ -348,7 +390,12 @@ actor TranslationOrchestrator {
                 }
 
                 retryCount += 1
+                totalRetries += 1
                 if retryCount > config.maxRetries {
+                    translationLogger.batchFailed(
+                        range: "\(currentBatchRange.startIndex)-\(currentBatchRange.endIndex)",
+                        error: String(describing: error)
+                    )
                     throw error
                 }
                 try await Task.sleep(nanoseconds: UInt64(pow(2.0, Double(retryCount)) * 250_000_000))
