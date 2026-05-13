@@ -15,10 +15,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "65F9567CD37166089A0A5D2D"
+               BlueprintIdentifier = "5A0D281050CAF2743498182A"
                BuildableName = "BridgeSub.app"
-               BlueprintName = "SubtitleStudio"
-               ReferencedContainer = "container:SubtitleStudio.xcodeproj">
+               BlueprintName = "BridgeSub"
+               ReferencedContainer = "container:BridgeSub.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -32,10 +32,10 @@
       <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "65F9567CD37166089A0A5D2D"
+            BlueprintIdentifier = "5A0D281050CAF2743498182A"
             BuildableName = "BridgeSub.app"
-            BlueprintName = "SubtitleStudio"
-            ReferencedContainer = "container:SubtitleStudio.xcodeproj">
+            BlueprintName = "BridgeSub"
+            ReferencedContainer = "container:BridgeSub.xcodeproj">
          </BuildableReference>
       </MacroExpansion>
       <Testables>
@@ -55,10 +55,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "65F9567CD37166089A0A5D2D"
+            BlueprintIdentifier = "5A0D281050CAF2743498182A"
             BuildableName = "BridgeSub.app"
-            BlueprintName = "SubtitleStudio"
-            ReferencedContainer = "container:SubtitleStudio.xcodeproj">
+            BlueprintName = "BridgeSub"
+            ReferencedContainer = "container:BridgeSub.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
       <CommandLineArguments>
@@ -74,10 +74,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "65F9567CD37166089A0A5D2D"
+            BlueprintIdentifier = "5A0D281050CAF2743498182A"
             BuildableName = "BridgeSub.app"
-            BlueprintName = "SubtitleStudio"
-            ReferencedContainer = "container:SubtitleStudio.xcodeproj">
+            BlueprintName = "BridgeSub"
+            ReferencedContainer = "container:BridgeSub.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

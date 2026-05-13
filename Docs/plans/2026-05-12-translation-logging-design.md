@@ -2,7 +2,7 @@
 
 ## Motivation
 
-Translation code (`TranslationOrchestrator`, `TranslationProviders`) currently produces zero log output. Errors are thrown as `WorkflowError` and caught by the view model, but with no structured trace of what happened, when, or with what inputs. Two other services use `Logger` with inconsistent subsystem names (`com.xiaodong.SubtitleStudio` vs `com.xiaodong.BridgeSub`). This makes ongoing observability impossible.
+Translation code (`TranslationOrchestrator`, `TranslationProviders`) currently produces zero log output. Errors are thrown as `WorkflowError` and caught by the view model, but with no structured trace of what happened, when, or with what inputs. Two other services use `Logger` with inconsistent subsystem names (`com.moguiyu.BridgeSub` vs `com.moguiyu.BridgeSub`). This makes ongoing observability impossible.
 
 ## Design
 
@@ -11,12 +11,12 @@ Translation code (`TranslationOrchestrator`, `TranslationProviders`) currently p
 A small struct wrapping `Logger` with translation-specific helpers. No protocol/service abstraction — that would be overkill for key-events-only logging.
 
 ```swift
-// SubtitleStudio/Infrastructure/Translation/TranslationLogger.swift
+// BridgeSub/Infrastructure/Translation/TranslationLogger.swift
 import OSLog
 
 struct TranslationLogger {
     private let logger = Logger(
-        subsystem: "com.xiaodong.SubtitleStudio",
+        subsystem: "com.moguiyu.BridgeSub",
         category: "Translation"
     )
 
@@ -54,19 +54,19 @@ struct TranslationLogger {
 
 ### Subsystem Consistency Fix
 
-`SileroVADService` currently uses `com.xiaodong.BridgeSub` — unified to `com.xiaodong.SubtitleStudio` for consistent Console.app filtering.
+`SileroVADService` currently uses `com.moguiyu.BridgeSub` — unified to `com.moguiyu.BridgeSub` for consistent Console.app filtering.
 
 ## Files
 
 | Action | File |
 |--------|------|
-| **New** | `SubtitleStudio/Infrastructure/Translation/TranslationLogger.swift` |
-| **Edit** | `SubtitleStudio/Services/TranslationOrchestrator.swift` |
-| **Edit** | `SubtitleStudio/Infrastructure/Translation/TranslationProviders.swift` |
-| **Edit** | `SubtitleStudio/Infrastructure/Media/SileroVADService.swift` |
+| **New** | `BridgeSub/Infrastructure/Translation/TranslationLogger.swift` |
+| **Edit** | `BridgeSub/Services/TranslationOrchestrator.swift` |
+| **Edit** | `BridgeSub/Infrastructure/Translation/TranslationProviders.swift` |
+| **Edit** | `BridgeSub/Infrastructure/Media/SileroVADService.swift` |
 
 ## Access
 
 All logs Viewable via:
-- **Console.app**: filter by subsystem `com.xiaodong.SubtitleStudio` and category `Translation`
-- **Terminal**: `log stream --predicate 'subsystem == "com.xiaodong.SubtitleStudio" AND category == "Translation"' --level debug`
+- **Console.app**: filter by subsystem `com.moguiyu.BridgeSub` and category `Translation`
+- **Terminal**: `log stream --predicate 'subsystem == "com.moguiyu.BridgeSub" AND category == "Translation"' --level debug`

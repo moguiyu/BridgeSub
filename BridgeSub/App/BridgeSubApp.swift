@@ -1,7 +1,7 @@
 import SwiftUI
 
 @main
-struct SubtitleStudioApp: App {
+struct BridgeSubApp: App {
     @State private var viewModel = WorkflowViewModel(environment: .live)
 
     var body: some Scene {

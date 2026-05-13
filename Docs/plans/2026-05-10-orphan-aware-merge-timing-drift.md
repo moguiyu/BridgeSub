@@ -18,7 +18,7 @@
 ## Task 1: Extend `AlignmentReport` with orphan and drift fields
 
 **Files:**
-- Modify: `SubtitleStudio/Domain/Models.swift:1492–1510`
+- Modify: `BridgeSub/Domain/Models.swift:1492–1510`
 
 Current struct at line 1492:
 ```swift
@@ -88,7 +88,7 @@ return AlignmentReport(
 **Step 3: Compile check**
 
 ```bash
-xcodebuild -project SubtitleStudio.xcodeproj -scheme SubtitleStudio \
+xcodebuild -project BridgeSub.xcodeproj -scheme BridgeSub \
   -destination 'platform=macOS' build 2>&1 | grep -E 'error:|BUILD'
 ```
 
@@ -97,7 +97,7 @@ Expected: `** BUILD SUCCEEDED **`
 **Step 4: Commit**
 
 ```bash
-git add SubtitleStudio/Domain/Models.swift SubtitleStudio/Services/SubtitleAlignmentService.swift
+git add BridgeSub/Domain/Models.swift BridgeSub/Services/SubtitleAlignmentService.swift
 git commit -m "feat: add timing drift and orphan fields to AlignmentReport"
 ```
 
@@ -106,7 +106,7 @@ git commit -m "feat: add timing drift and orphan fields to AlignmentReport"
 ## Task 2: Detect and correct residual timing drift in the normalizer
 
 **Files:**
-- Modify: `SubtitleStudio/Services/SubtitleAlignmentService.swift:194–240`
+- Modify: `BridgeSub/Services/SubtitleAlignmentService.swift:194–240`
 
 The normalization function already applies a large (>200ms) offset via `calculateOffset()`. This task adds a second, fine-grained detection pass for smaller systematic drifts (>30ms) using the matched pairs from the final alignment report.
 
@@ -202,7 +202,7 @@ return TimelineMergeNormalizationResult(
 **Step 3: Compile check**
 
 ```bash
-xcodebuild -project SubtitleStudio.xcodeproj -scheme SubtitleStudio \
+xcodebuild -project BridgeSub.xcodeproj -scheme BridgeSub \
   -destination 'platform=macOS' build 2>&1 | grep -E 'error:|BUILD'
 ```
 
@@ -211,7 +211,7 @@ Expected: `** BUILD SUCCEEDED **`
 **Step 4: Commit**
 
 ```bash
-git add SubtitleStudio/Services/SubtitleAlignmentService.swift
+git add BridgeSub/Services/SubtitleAlignmentService.swift
 git commit -m "feat: detect and correct residual timing drift in subtitle normalizer"
 ```
 
@@ -220,7 +220,7 @@ git commit -m "feat: detect and correct residual timing drift in subtitle normal
 ## Task 3: Inject secondary orphan cues in `SubtitleMergeService.merge()`
 
 **Files:**
-- Modify: `SubtitleStudio/Services/SubtitleMergeService.swift:36–73`
+- Modify: `BridgeSub/Services/SubtitleMergeService.swift:36–73`
 
 After the main `for segment in segments { ... }` loop and the final page emission, inject orphaned secondary cues and re-sort the full cue list.
 
@@ -299,7 +299,7 @@ Replace `alignmentReport: report` in the `MergedSubtitleDocument(...)` return wi
 **Step 2: Compile check**
 
 ```bash
-xcodebuild -project SubtitleStudio.xcodeproj -scheme SubtitleStudio \
+xcodebuild -project BridgeSub.xcodeproj -scheme BridgeSub \
   -destination 'platform=macOS' build 2>&1 | grep -E 'error:|BUILD'
 ```
 
@@ -308,7 +308,7 @@ Expected: `** BUILD SUCCEEDED **`
 **Step 3: Commit**
 
 ```bash
-git add SubtitleStudio/Services/SubtitleMergeService.swift
+git add BridgeSub/Services/SubtitleMergeService.swift
 git commit -m "feat: inject orphaned secondary cues into merged subtitle output"
 ```
 
@@ -317,7 +317,7 @@ git commit -m "feat: inject orphaned secondary cues into merged subtitle output"
 ## Task 4: Surface drift and orphan data in `SubtitleQualityService`
 
 **Files:**
-- Modify: `SubtitleStudio/Services/SubtitleQualityService.swift`
+- Modify: `BridgeSub/Services/SubtitleQualityService.swift`
 
 The quality service already reads `alignmentReport` fields to build notes. Add two more note generators at the end of the existing notes-building section.
 
@@ -347,7 +347,7 @@ if orphanCount > 0 {
 **Step 2: Compile check**
 
 ```bash
-xcodebuild -project SubtitleStudio.xcodeproj -scheme SubtitleStudio \
+xcodebuild -project BridgeSub.xcodeproj -scheme BridgeSub \
   -destination 'platform=macOS' build 2>&1 | grep -E 'error:|BUILD'
 ```
 
@@ -356,7 +356,7 @@ Expected: `** BUILD SUCCEEDED **`
 **Step 3: Commit**
 
 ```bash
-git add SubtitleStudio/Services/SubtitleQualityService.swift
+git add BridgeSub/Services/SubtitleQualityService.swift
 git commit -m "feat: surface timing drift and orphan recovery in quality report"
 ```
 
@@ -365,7 +365,7 @@ git commit -m "feat: surface timing drift and orphan recovery in quality report"
 ## Task 5: Add computed properties to `WorkflowViewModel`
 
 **Files:**
-- Modify: `SubtitleStudio/ViewModels/WorkflowViewModel.swift` (near other `vad*` computed properties, around line 887)
+- Modify: `BridgeSub/ViewModels/WorkflowViewModel.swift` (near other `vad*` computed properties, around line 887)
 
 **Step 1: Add three new computed properties**
 
@@ -414,7 +414,7 @@ var secondaryCoverageAfterInjection: Double {
 **Step 2: Compile check**
 
 ```bash
-xcodebuild -project SubtitleStudio.xcodeproj -scheme SubtitleStudio \
+xcodebuild -project BridgeSub.xcodeproj -scheme BridgeSub \
   -destination 'platform=macOS' build 2>&1 | grep -E 'error:|BUILD'
 ```
 
@@ -423,7 +423,7 @@ Expected: `** BUILD SUCCEEDED **`
 **Step 3: Commit**
 
 ```bash
-git add SubtitleStudio/ViewModels/WorkflowViewModel.swift
+git add BridgeSub/ViewModels/WorkflowViewModel.swift
 git commit -m "feat: add timing drift and orphan coverage computed properties to ViewModel"
 ```
 
@@ -432,7 +432,7 @@ git commit -m "feat: add timing drift and orphan coverage computed properties to
 ## Task 6: Add alignment rows to `WorkflowInspectorView`
 
 **Files:**
-- Modify: `SubtitleStudio/Views/WorkflowInspectorView.swift` (after existing alignment rows, around line 412)
+- Modify: `BridgeSub/Views/WorkflowInspectorView.swift` (after existing alignment rows, around line 412)
 
 The existing pattern uses `alignmentRow(title:value:systemImage:tone:)` at line 691. Add two more rows after the existing five alignment rows (matched %, low-confidence %, median delta, monotonicity, average confidence).
 
@@ -463,7 +463,7 @@ if viewModel.orphanedSecondaryCount > 0 {
 **Step 2: Compile check**
 
 ```bash
-xcodebuild -project SubtitleStudio.xcodeproj -scheme SubtitleStudio \
+xcodebuild -project BridgeSub.xcodeproj -scheme BridgeSub \
   -destination 'platform=macOS' build 2>&1 | grep -E 'error:|BUILD'
 ```
 
@@ -472,7 +472,7 @@ Expected: `** BUILD SUCCEEDED **`
 **Step 3: Commit**
 
 ```bash
-git add SubtitleStudio/Views/WorkflowInspectorView.swift
+git add BridgeSub/Views/WorkflowInspectorView.swift
 git commit -m "feat: show timing drift correction and recovered cue count in inspector"
 ```
 
@@ -483,7 +483,7 @@ git commit -m "feat: show timing drift correction and recovered cue count in ins
 **Step 1: Verify the full build one more time**
 
 ```bash
-xcodegen generate && xcodebuild -project SubtitleStudio.xcodeproj -scheme SubtitleStudio \
+xcodegen generate && xcodebuild -project BridgeSub.xcodeproj -scheme BridgeSub \
   -destination 'platform=macOS' build 2>&1 | tail -5
 ```
 
@@ -613,9 +613,9 @@ Expected: offset avg ≈ 0ms (was −43ms)
 
 | File | Lines Changed | Change |
 |------|--------------|--------|
-| `SubtitleStudio/Domain/Models.swift` | ~1492–1510 | Add 3 fields to `AlignmentReport` + update `.empty` |
-| `SubtitleStudio/Services/SubtitleAlignmentService.swift` | ~242, ~355, ~194–240 | Add defaults to `report(for:)`, add `detectResidualDrift()`, apply in normalizer |
-| `SubtitleStudio/Services/SubtitleMergeService.swift` | ~36–73 | Orphan collection, injection, re-sort, renumber, finalReport |
-| `SubtitleStudio/Services/SubtitleQualityService.swift` | ~80–110 | Two new note generators |
-| `SubtitleStudio/ViewModels/WorkflowViewModel.swift` | ~910 | Three new computed properties |
-| `SubtitleStudio/Views/WorkflowInspectorView.swift` | ~412 | Two new `alignmentRow` calls |
+| `BridgeSub/Domain/Models.swift` | ~1492–1510 | Add 3 fields to `AlignmentReport` + update `.empty` |
+| `BridgeSub/Services/SubtitleAlignmentService.swift` | ~242, ~355, ~194–240 | Add defaults to `report(for:)`, add `detectResidualDrift()`, apply in normalizer |
+| `BridgeSub/Services/SubtitleMergeService.swift` | ~36–73 | Orphan collection, injection, re-sort, renumber, finalReport |
+| `BridgeSub/Services/SubtitleQualityService.swift` | ~80–110 | Two new note generators |
+| `BridgeSub/ViewModels/WorkflowViewModel.swift` | ~910 | Three new computed properties |
+| `BridgeSub/Views/WorkflowInspectorView.swift` | ~412 | Two new `alignmentRow` calls |

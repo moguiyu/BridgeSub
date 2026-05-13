@@ -3,7 +3,7 @@ import OSLog
 
 struct TranslationLogger {
     private let logger = Logger(
-        subsystem: "com.xiaodong.BridgeSub",
+        subsystem: "com.moguiyu.BridgeSub",
         category: "Translation"
     )
 

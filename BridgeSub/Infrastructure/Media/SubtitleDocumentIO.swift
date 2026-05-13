@@ -3,7 +3,7 @@ import OSLog
 import SubtitleKit
 
 struct SubtitleDocumentIOService: SubtitleDocumentIOServicing {
-    private static let logger = Logger(subsystem: "com.xiaodong.BridgeSub", category: "SubtitleIO")
+    private static let logger = Logger(subsystem: "com.moguiyu.BridgeSub", category: "SubtitleIO")
 
     private let processRunner: ProcessRunner
     private let cache: SubtitleDocumentCache

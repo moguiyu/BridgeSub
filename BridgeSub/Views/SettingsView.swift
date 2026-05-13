@@ -24,7 +24,7 @@ struct SettingsView: View {
     @State private var providerStatusIsError = false
 
     let toolStatuses: [MediaToolStatus]
-    private let credentialStore = KeychainCredentialStore(serviceName: "SubtitleStudio")
+    private let credentialStore = KeychainCredentialStore(serviceName: "BridgeSub")
 
     var body: some View {
         TabView(selection: $selectedTab) {

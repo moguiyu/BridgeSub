@@ -19,7 +19,7 @@ struct AppEnvironment {
     @MainActor
     static let live: AppEnvironment = {
         let processRunner = ProcessRunner()
-        let credentialStore = KeychainCredentialStore(serviceName: "SubtitleStudio")
+        let credentialStore = KeychainCredentialStore(serviceName: "BridgeSub")
         let toolRegistry = MediaToolRegistry()
         let mergeService = SubtitleMergeService()
         let qualityService = SubtitleQualityService()

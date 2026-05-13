@@ -82,7 +82,7 @@ final class OpenSubtitlesRESTClient: OpenSubtitlesServicing {
         request.httpMethod = "GET"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(apiKey, forHTTPHeaderField: "Api-Key")
-        request.setValue("SubtitleStudio/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("BridgeSub/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let (data, response) = try await session.data(for: request)
@@ -116,7 +116,7 @@ final class OpenSubtitlesRESTClient: OpenSubtitlesServicing {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(currentApiKey, forHTTPHeaderField: "Api-Key")
-        request.setValue("SubtitleStudio/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("BridgeSub/1.0", forHTTPHeaderField: "User-Agent")
         request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
 
         let body: [String: Any] = ["file_id": subtitleID, "sub_format": "srt"]
@@ -349,7 +349,7 @@ final class OpenSubtitlesRESTClient: OpenSubtitlesServicing {
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.setValue(currentApiKey, forHTTPHeaderField: "Api-Key")
-        request.setValue("SubtitleStudio/1.0", forHTTPHeaderField: "User-Agent")
+        request.setValue("BridgeSub/1.0", forHTTPHeaderField: "User-Agent")
 
         let username = try credentialStore.load(account: "opensubtitles.username") ?? ""
         let password = try credentialStore.load(account: "opensubtitles.password") ?? ""

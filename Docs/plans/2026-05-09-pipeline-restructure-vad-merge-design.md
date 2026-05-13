@@ -191,6 +191,6 @@ enum QualityEvent {
 
 ## Verification
 
-- Build: `xcodegen generate && xcodebuild -project SubtitleStudio.xcodeproj -scheme SubtitleStudio -destination 'platform=macOS' build`
+- Build: `xcodegen generate && xcodebuild -project BridgeSub.xcodeproj -scheme BridgeSub -destination 'platform=macOS' build`
 - UI: load a video → verify candidates stream in incrementally with origin/kind badges → select source+target → verify merge pages stream in without structural jumps → switch export format → verify no re-merge (instant format switch)
 - VAD alignment: load a pair with known timing mismatch → observe fragment count without VAD vs. with VAD → verify VAD-arbitrated merge shows fewer single-sided fragments in preview
