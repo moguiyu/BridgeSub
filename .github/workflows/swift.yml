@@ -16,8 +16,8 @@ jobs:
     - name: Build
       run: |
         xcodebuild \
-          -project SubtitleStudio.xcodeproj \
-          -scheme SubtitleStudio \
+          -project BridgeSub.xcodeproj \
+          -scheme BridgeSub \
           -destination 'platform=macOS' \
           build \
           CODE_SIGN_IDENTITY="-" \
