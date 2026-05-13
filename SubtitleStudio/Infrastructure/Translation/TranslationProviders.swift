@@ -1,5 +1,20 @@
 import Foundation
 
+private func serializeMessages(_ messages: [TranslationMessage]) -> [[String: String]] {
+    messages.map { ["role": $0.role.rawValue, "content": $0.content] }
+}
+
+private func jsonSchemaResponseFormat(schemaName: String) -> [String: Any] {
+    [
+        "type": "json_schema",
+        "json_schema": [
+            "name": schemaName,
+            "strict": true,
+            "schema": ["type": "object", "additionalProperties": ["type": "string"]]
+        ]
+    ]
+}
+
 struct OllamaTranslationService: TranslationServicing {
     let kind: TranslationProviderKind = .ollama
     let capabilities = TranslationProviderCapabilities()
@@ -142,30 +157,6 @@ struct OllamaTranslationService: TranslationServicing {
         return TranslationResponse(content: content, usedStructuredOutput: usedStructuredOutput)
     }
 
-    private func serializeMessages(_ messages: [TranslationMessage]) -> [[String: String]] {
-        messages.map { message in
-            [
-                "role": message.role.rawValue,
-                "content": message.content
-            ]
-        }
-    }
-
-    private func jsonSchemaResponseFormat(schemaName: String) -> [String: Any] {
-        [
-            "type": "json_schema",
-            "json_schema": [
-                "name": schemaName,
-                "strict": true,
-                "schema": [
-                    "type": "object",
-                    "additionalProperties": [
-                        "type": "string"
-                    ]
-                ]
-            ]
-        ]
-    }
 }
 
 struct OpenAICompatibleTranslationService: TranslationServicing {
@@ -224,49 +215,19 @@ struct OpenAICompatibleTranslationService: TranslationServicing {
 
         let (data, response) = try await session.data(for: urlRequest)
         guard let httpResponse = response as? HTTPURLResponse, httpResponse.statusCode == 200 else {
-            let body = String(data: data, encoding: .utf8) ?? "<no body>"
-            throw WorkflowError.networkError("OpenAI-compatible translation failed: HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1), body: \(body.prefix(240))")
+            let responseBody = String(data: data, encoding: .utf8) ?? "<no body>"
+            throw WorkflowError.networkError("OpenAI-compatible translation failed: HTTP \((response as? HTTPURLResponse)?.statusCode ?? -1), body: \(responseBody.prefix(240))")
         }
-
         guard let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
               let choices = json["choices"] as? [[String: Any]],
               let firstChoice = choices.first,
               let message = firstChoice["message"] as? [String: Any],
               let content = message["content"] as? String,
               !content.isEmpty else {
-            let body = String(data: data, encoding: .utf8) ?? "<no body>"
-            throw WorkflowError.networkError("Invalid OpenAI-compatible response: \(body.prefix(240))")
+            let responseBody = String(data: data, encoding: .utf8) ?? "<no body>"
+            throw WorkflowError.networkError("Invalid OpenAI-compatible response: \(responseBody.prefix(240))")
         }
-
-        return TranslationResponse(
-            content: content,
-            usedStructuredOutput: translationRequest.responseFormat != .plainText
-        )
-    }
-
-    private func serializeMessages(_ messages: [TranslationMessage]) -> [[String: String]] {
-        messages.map { message in
-            [
-                "role": message.role.rawValue,
-                "content": message.content
-            ]
-        }
-    }
-
-    private func jsonSchemaResponseFormat(schemaName: String) -> [String: Any] {
-        [
-            "type": "json_schema",
-            "json_schema": [
-                "name": schemaName,
-                "strict": true,
-                "schema": [
-                    "type": "object",
-                    "additionalProperties": [
-                        "type": "string"
-                    ]
-                ]
-            ]
-        ]
+        return TranslationResponse(content: content, usedStructuredOutput: translationRequest.responseFormat != .plainText)
     }
 
     private func loadAPIKey(settings: ProviderSettings) throws -> String? {

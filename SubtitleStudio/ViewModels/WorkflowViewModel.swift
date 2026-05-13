@@ -967,10 +967,6 @@ final class WorkflowViewModel {
         return []
     }
 
-    var visiblePreviewCues: [BilingualCue] {
-        previewCues
-    }
-
     var previewTotalCueCount: Int {
         if previewState.totalCueCount > 0 {
             return previewState.totalCueCount
@@ -1105,15 +1101,6 @@ final class WorkflowViewModel {
 
     var orphanedSecondaryCount: Int {
         qualityReport?.alignmentReport.orphanedTargetCueIDs.count ?? 0
-    }
-
-    var secondaryCoverageAfterInjection: Double {
-        guard let report = qualityReport else { return 0 }
-        let alignment = report.alignmentReport
-        let matched = alignment.matches.filter { $0.targetCueID != nil }.count
-        let orphaned = alignment.orphanedTargetCueIDs.count
-        let total = matched + orphaned
-        return total > 0 ? Double(matched + orphaned) / Double(total) : 1.0
     }
 
     var showVADReminder: Bool {
@@ -1314,7 +1301,6 @@ final class WorkflowViewModel {
         cacheKey: String,
         vadResult: VADArbitrationResult? = nil
     ) {
-        // Serve instantly from cache when available
         if let cached = mergedDocumentCache[cacheKey] {
             mergedDocument = cached
             previewState.fullCues = cached.cues
@@ -1335,7 +1321,6 @@ final class WorkflowViewModel {
         mergePreviewTask = Task { [weak self] in
             guard let self else { return }
 
-            // pipeline.run() is actor-isolated — call with await from this async context
             let pipeline = await self.environment.pipeline
             let outputFormat = await self.exportFormat
             let (mergeStream, qualityStream) = await pipeline.run(
@@ -1920,10 +1905,7 @@ final class WorkflowViewModel {
     }
 
     private func deduplicatedSignals(_ signals: [CandidateQualitySignal]) -> [CandidateQualitySignal] {
-        var seen: Set<CandidateQualitySignal.Kind> = []
-        return signals.filter { signal in
-            seen.insert(signal.kind).inserted
-        }
+        signals.uniqued(by: \.kind)
     }
 
     private func updateInventory(with candidate: SubtitleCandidate) {
@@ -2104,17 +2086,6 @@ final class WorkflowViewModel {
 
     private var currentMergeCacheKey: String {
         "\(cards[0].selectedCandidateID ?? "nil")-\(cards[1].selectedCandidateID ?? "nil")"
-    }
-}
-
-private extension SubtitleFormatKind {
-    var allowedContentTypes: [UTType] {
-        switch self {
-        case .srt, .ass, .vtt:
-            return [.plainText]
-        case .unknown:
-            return [.data]
-        }
     }
 }
 

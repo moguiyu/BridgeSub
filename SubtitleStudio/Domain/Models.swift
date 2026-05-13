@@ -202,15 +202,6 @@ enum TranslationProviderKind: String, Codable, CaseIterable, Identifiable, Senda
         case .openAICompatible: return "OpenAI Compatible"
         }
     }
-
-    var title: String {
-        switch self {
-        case .ollama:
-            return "Ollama / local"
-        case .openAICompatible:
-            return "OpenAI compatible"
-        }
-    }
 }
 
 enum TranslationProviderPresetID: String, Codable, CaseIterable, Identifiable, Sendable {

@@ -790,11 +790,7 @@ struct SubtitleWorkspaceView: View {
     }
 
     private func formatFileSize(_ bytes: Int64) -> String {
-        let kb = Double(bytes) / 1024
-        if kb < 1024 {
-            return String(format: "%.0f KB", kb)
-        }
-        return String(format: "%.1f MB", kb / 1024)
+        ByteCountFormatter.string(fromByteCount: bytes, countStyle: .file)
     }
 
     private func badge(_ text: String, color: Color) -> some View {

@@ -968,9 +968,12 @@ actor TranslationOrchestrator {
         )
     }
 
+    private static let recurringTermRegex = try? NSRegularExpression(
+        pattern: #"\b[A-Z][A-Za-z0-9']+(?:\s+[A-Z][A-Za-z0-9']+){0,2}\b"#
+    )
+
     private func extractRecurringTerms(from cues: [SubtitleCue]) -> [String] {
-        let pattern = #"\b[A-Z][A-Za-z0-9']+(?:\s+[A-Z][A-Za-z0-9']+){0,2}\b"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = Self.recurringTermRegex else { return [] }
 
         var counts: [String: Int] = [:]
         for cue in cues {
@@ -998,13 +1001,18 @@ actor TranslationOrchestrator {
     private func summarizeRegister(for cues: [SubtitleCue]) -> String {
         guard !cues.isEmpty else { return "" }
 
-        let texts = cues.map(\.plainText)
-        let avgWordCount = texts
-            .map { $0.split(whereSeparator: \.isWhitespace).count }
-            .reduce(0, +) / max(texts.count, 1)
-        let exclamationCount = texts.filter { $0.contains("!") }.count
-        let questionCount = texts.filter { $0.contains("?") }.count
-        let profanityCount = texts.filter { $0.localizedCaseInsensitiveContains("damn") || $0.localizedCaseInsensitiveContains("hell") }.count
+        var totalWords = 0
+        var exclamationCount = 0
+        var questionCount = 0
+        var profanityCount = 0
+        for cue in cues {
+            let text = cue.plainText
+            totalWords += text.split(whereSeparator: \.isWhitespace).count
+            if text.contains("!") { exclamationCount += 1 }
+            if text.contains("?") { questionCount += 1 }
+            if text.localizedCaseInsensitiveContains("damn") || text.localizedCaseInsensitiveContains("hell") { profanityCount += 1 }
+        }
+        let avgWordCount = totalWords / cues.count
 
         var parts: [String] = []
         if avgWordCount <= 4 {
@@ -1012,10 +1020,10 @@ actor TranslationOrchestrator {
         } else {
             parts.append("conversational subtitle dialogue")
         }
-        if exclamationCount > texts.count / 6 {
+        if exclamationCount > cues.count / 6 {
             parts.append("frequent exclamations")
         }
-        if questionCount > texts.count / 6 {
+        if questionCount > cues.count / 6 {
             parts.append("regular questioning exchanges")
         }
         if profanityCount > 0 {

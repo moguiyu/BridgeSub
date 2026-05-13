@@ -135,7 +135,7 @@ struct SettingsView: View {
                         if editingPresetDescriptor.supportsOpenAICompatibleToggle {
                             Toggle(
                                 "Use OpenAI-compatible endpoint (/v1/chat/completions)",
-                                isOn: presetBoolBinding(\.useOpenAICompatibleEndpoint)
+                                isOn: presetBinding(\.useOpenAICompatibleEndpoint)
                             )
                             .font(.caption)
                         }
@@ -339,6 +339,14 @@ struct SettingsView: View {
     }
 
     private var providerValidationMessage: String {
+        providerValidationError ?? "Preset is ready for translation cards."
+    }
+
+    private var providerValidationColor: Color {
+        providerValidationError == nil ? .secondary : .orange
+    }
+
+    private var providerValidationError: String? {
         let configuration = editingPresetConfiguration
         if configuration.baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "Base URL is required."
@@ -353,11 +361,7 @@ struct SettingsView: View {
            currentProviderAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "Save an API key for this preset before using it."
         }
-        return "Preset is ready for translation cards."
-    }
-
-    private var providerValidationColor: Color {
-        providerValidationMessage == "Preset is ready for translation cards." ? .secondary : .orange
+        return nil
     }
 
     private var versionLabel: String {
@@ -421,18 +425,7 @@ struct SettingsView: View {
         }
     }
 
-    private func presetBinding(_ keyPath: WritableKeyPath<TranslationProviderPresetConfiguration, String>) -> Binding<String> {
-        Binding(
-            get: { editingPresetConfiguration[keyPath: keyPath] },
-            set: { newValue in
-                providerSettings.updatePresetConfiguration(for: editingPresetID) { configuration in
-                    configuration[keyPath: keyPath] = newValue
-                }
-            }
-        )
-    }
-
-    private func presetBoolBinding(_ keyPath: WritableKeyPath<TranslationProviderPresetConfiguration, Bool>) -> Binding<Bool> {
+    private func presetBinding<V>(_ keyPath: WritableKeyPath<TranslationProviderPresetConfiguration, V>) -> Binding<V> {
         Binding(
             get: { editingPresetConfiguration[keyPath: keyPath] },
             set: { newValue in
