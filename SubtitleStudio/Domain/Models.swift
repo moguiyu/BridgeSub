@@ -465,21 +465,22 @@ enum TranslationPendingControl: String, Codable, Sendable {
     case cancel
 }
 
-enum TranslationQualityProfile: String, CaseIterable, Codable, Identifiable, Sendable {
-    case general
+enum ContentType: String, CaseIterable, Codable, Identifiable, Sendable {
+    case drama
     case comedy
-    case crimeThriller
+    case actionThriller
+    case documentary
+    case childrens
 
     var id: String { rawValue }
 
     var title: String {
         switch self {
-        case .general:
-            return "General"
-        case .comedy:
-            return "Comedy"
-        case .crimeThriller:
-            return "Crime / thriller"
+        case .drama: return "Drama / General"
+        case .comedy: return "Comedy"
+        case .actionThriller: return "Action / Thriller"
+        case .documentary: return "Documentary"
+        case .childrens: return "Children's"
         }
     }
 }
@@ -499,25 +500,6 @@ enum TranslationPassStrategy: String, CaseIterable, Codable, Identifiable, Senda
             return "Review + rewrite"
         case .qualityFirst:
             return "Quality first"
-        }
-    }
-}
-
-enum TranslationStrictness: String, CaseIterable, Codable, Identifiable, Sendable {
-    case balanced
-    case highFidelity
-    case subtitleFit
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .balanced:
-            return "Balanced"
-        case .highFidelity:
-            return "High fidelity"
-        case .subtitleFit:
-            return "Subtitle fit"
         }
     }
 }
@@ -573,8 +555,7 @@ enum ReferenceConflictDecision: String, Codable, Sendable {
 struct TranslationPromptPolicy: Equatable, Sendable {
     let baseRole: String
     let hardRules: [String]
-    let profileNotes: [String]
-    let strictnessNotes: [String]
+    let contentNotes: [String]
     let advancedInstructions: String
 }
 
@@ -637,20 +618,20 @@ struct TranslationProviderCapabilities: Equatable, Sendable {
 }
 
 struct TranslationBrief: Equatable, Sendable {
-    let episodeContext: String
+    let instructions: String
     let recurringTerms: [String]
     let registerSummary: String
     let mediaTitle: String?
     let mediaYear: Int?
 
     init(
-        episodeContext: String,
+        instructions: String,
         recurringTerms: [String],
         registerSummary: String,
         mediaTitle: String? = nil,
         mediaYear: Int? = nil
     ) {
-        self.episodeContext = episodeContext
+        self.instructions = instructions
         self.recurringTerms = recurringTerms
         self.registerSummary = registerSummary
         self.mediaTitle = mediaTitle
@@ -658,7 +639,7 @@ struct TranslationBrief: Equatable, Sendable {
     }
 
     var hasContent: Bool {
-        !episodeContext.isEmpty
+        !instructions.isEmpty
             || !recurringTerms.isEmpty
             || !registerSummary.isEmpty
             || (mediaTitle?.isEmpty == false)
@@ -731,8 +712,7 @@ struct TranslateState: Equatable, Sendable {
     var secondaryReferenceCandidateID: String?
     var mediaTitle: String = ""
     var mediaYear: Int?
-    var singlePassPreference: SinglePassPreference = .auto
-    var episodeContext: String = ""
+    var instructions: String = ""
     var jobState: TranslationJobState = .idle
     var completedCueCount: Int = 0
     var totalCueCount: Int = 0
@@ -1856,14 +1836,12 @@ CRITICAL RULES:
     var useOpenAICompatibleEndpoint: Bool = false
     // Translation behavior settings
     var translationCustomInstructions: String = defaultTranslationCustomInstructions
-    var translationQualityProfile: TranslationQualityProfile = .general
+    var translationContentType: ContentType = .drama
     var translationPassStrategy: TranslationPassStrategy = .qualityFirst
-    var translationStrictness: TranslationStrictness = .balanced
-    var translationBatchSize: Int = 50
-    var translationKeepNames: Bool = true
-    var translationKeepLocations: Bool = true
-    var translationKeepBrands: Bool = false
+    var translationSinglePassPreference: SinglePassPreference = .auto
+    var translationTemperature: Double = 0.2
     var referenceOverrideConfidenceThreshold: Double = 0.82
+    var settingsSchemaVersion: Int = 2
 
     var availablePresets: [TranslationProviderPresetConfiguration] {
         TranslationProviderPresetID.allCases.map { configuration(for: $0) }
@@ -1913,14 +1891,12 @@ CRITICAL RULES:
         }
         defaults.set(lastUsedProviderPresetID.rawValue, forKey: Self.lastUsedProviderPresetIDKey)
         defaults.set(translationCustomInstructions, forKey: "translationCustomInstructions")
-        defaults.set(translationQualityProfile.rawValue, forKey: "translationQualityProfile")
+        defaults.set(translationContentType.rawValue, forKey: "translationContentType")
         defaults.set(translationPassStrategy.rawValue, forKey: "translationPassStrategy")
-        defaults.set(translationStrictness.rawValue, forKey: "translationStrictness")
-        defaults.set(translationBatchSize, forKey: "translationBatchSize")
-        defaults.set(translationKeepNames, forKey: "translationKeepNames")
-        defaults.set(translationKeepLocations, forKey: "translationKeepLocations")
-        defaults.set(translationKeepBrands, forKey: "translationKeepBrands")
+        defaults.set(translationSinglePassPreference.rawValue, forKey: "translationSinglePassPreference")
+        defaults.set(translationTemperature, forKey: "translationTemperature")
         defaults.set(referenceOverrideConfidenceThreshold, forKey: "referenceOverrideConfidenceThreshold")
+        defaults.set(settingsSchemaVersion, forKey: "settingsSchemaVersion")
     }
 
     static func load(from defaults: UserDefaults = .standard) -> ProviderSettings {
@@ -1942,23 +1918,28 @@ CRITICAL RULES:
             settings.providerPresetConfigurations = migratePresetConfigurations(from: defaults)
         }
 
+        // One-shot migration: remove obsolete keys from pre-schema-v2 installs
+        let storedVersion = defaults.integer(forKey: "settingsSchemaVersion")
+        if storedVersion < 2 {
+            for key in ["translationQualityProfile", "translationStrictness",
+                        "translationKeepNames", "translationKeepLocations",
+                        "translationKeepBrands", "translationBatchSize"] {
+                defaults.removeObject(forKey: key)
+            }
+            defaults.set(2, forKey: "settingsSchemaVersion")
+        }
+
         settings.translationCustomInstructions = loadTranslationCustomInstructions(from: defaults)
-        settings.translationQualityProfile =
-            TranslationQualityProfile(rawValue: defaults.string(forKey: "translationQualityProfile") ?? TranslationQualityProfile.general.rawValue)
-            ?? .general
+        settings.translationContentType =
+            ContentType(rawValue: defaults.string(forKey: "translationContentType") ?? ContentType.drama.rawValue)
+            ?? .drama
         settings.translationPassStrategy =
             TranslationPassStrategy(rawValue: defaults.string(forKey: "translationPassStrategy") ?? TranslationPassStrategy.qualityFirst.rawValue)
             ?? .qualityFirst
-        settings.translationStrictness =
-            TranslationStrictness(rawValue: defaults.string(forKey: "translationStrictness") ?? TranslationStrictness.balanced.rawValue)
-            ?? .balanced
-        settings.translationBatchSize = defaults.integer(forKey: "translationBatchSize")
-        if settings.translationBatchSize == 0 {
-            settings.translationBatchSize = ProviderSettings().translationBatchSize
-        }
-        settings.translationKeepNames = defaults.object(forKey: "translationKeepNames") as? Bool ?? ProviderSettings().translationKeepNames
-        settings.translationKeepLocations = defaults.object(forKey: "translationKeepLocations") as? Bool ?? ProviderSettings().translationKeepLocations
-        settings.translationKeepBrands = defaults.object(forKey: "translationKeepBrands") as? Bool ?? ProviderSettings().translationKeepBrands
+        settings.translationSinglePassPreference =
+            SinglePassPreference(rawValue: defaults.string(forKey: "translationSinglePassPreference") ?? SinglePassPreference.auto.rawValue)
+            ?? .auto
+        settings.translationTemperature = defaults.object(forKey: "translationTemperature") as? Double ?? 0.2
         let defaultThreshold = ProviderSettings().referenceOverrideConfidenceThreshold
         let threshold = defaults.object(forKey: "referenceOverrideConfidenceThreshold") as? Double ?? defaultThreshold
         settings.referenceOverrideConfidenceThreshold = min(max(threshold, 0), 1)

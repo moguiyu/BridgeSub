@@ -53,9 +53,6 @@ final class WorkflowViewModel {
     var isProcessing = false
     var processingLabel = ""
     var processingProgress: Double = 0
-    var spotCheckEnabled = false
-    var spotCheckSampleSize = 10
-    var selectedProcessingOption: SubtitleProcessingOption = .useAvailable
     var statusLines: [WorkflowLogEntry] = [
         WorkflowLogEntry(message: "Ready.", kind: .info)
     ]
@@ -622,15 +619,6 @@ final class WorkflowViewModel {
     func setMediaYear(_ year: Int?, forCardIndex cardIndex: Int) {
         guard cards.indices.contains(cardIndex) else { return }
         cards[cardIndex].translateState.mediaYear = year
-    }
-
-    func singlePassPreference(forCardIndex cardIndex: Int) -> SinglePassPreference {
-        cards.indices.contains(cardIndex) ? cards[cardIndex].translateState.singlePassPreference : .auto
-    }
-
-    func setSinglePassPreference(_ pref: SinglePassPreference, forCardIndex cardIndex: Int) {
-        guard cards.indices.contains(cardIndex) else { return }
-        cards[cardIndex].translateState.singlePassPreference = pref
     }
 
     func environmentContextWindowTokens(forCardIndex cardIndex: Int) -> Int? {
@@ -1627,28 +1615,27 @@ final class WorkflowViewModel {
                     let dualReference = self.dualReferenceCache[cardIndex]
                     let mediaTitle = self.cards[cardIndex].translateState.mediaTitle
                     let trimmedTitle = mediaTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let ctxTokens = self.environmentContextWindowTokens(forCardIndex: cardIndex)
+                    let autoBatchSize = ctxTokens.map { max(10, min(200, ($0 * 6 / 10) / 60)) } ?? 50
                     return TranslationOrchestrator.Config(
-                        batchSize: effectiveSettings.translationBatchSize,
+                        batchSize: autoBatchSize,
                         maxRetries: 2,
                         maxPromptCharacters: 6_500,
                         customInstructions: effectiveSettings.translationCustomInstructions,
-                        episodeContext: self.cards[cardIndex].translateState.episodeContext,
+                        instructions: self.cards[cardIndex].translateState.instructions,
                         mediaTitle: trimmedTitle.isEmpty ? nil : trimmedTitle,
                         mediaYear: self.cards[cardIndex].translateState.mediaYear,
-                        keepNames: effectiveSettings.translationKeepNames,
-                        keepLocations: effectiveSettings.translationKeepLocations,
-                        keepBrands: effectiveSettings.translationKeepBrands,
                         maxLinesPerCue: 2,
                         targetCharactersPerLine: 42,
-                        qualityProfile: effectiveSettings.translationQualityProfile,
+                        contentType: effectiveSettings.translationContentType,
                         passStrategy: effectiveSettings.translationPassStrategy,
-                        strictness: effectiveSettings.translationStrictness,
+                        temperature: effectiveSettings.translationTemperature,
                         referenceSelection: referenceResolution.selection,
                         referenceDocument: referenceResolution.document,
                         referenceOverrideConfidenceThreshold: effectiveSettings.referenceOverrideConfidenceThreshold,
                         dualReference: dualReference,
                         providerCapabilities: translationService.capabilities,
-                        singlePassOverride: self.cards[cardIndex].translateState.singlePassPreference
+                        singlePassOverride: effectiveSettings.translationSinglePassPreference
                     )
                 }
 

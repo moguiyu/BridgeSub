@@ -17,6 +17,7 @@ struct SubtitleWorkspaceView: View {
                         .frame(height: 1)
                         .id(topAnchorID)
 
+                    languageSection
                     sourceModeCards
                     contentPanel
                 }
@@ -334,60 +335,49 @@ struct SubtitleWorkspaceView: View {
                 .fixedSize(horizontal: false, vertical: true)
 
             let contextTokens = viewModel.environmentContextWindowTokens(forCardIndex: cardIndex)
-            if contextTokens != nil {
-                pickerSectionLabel("Single-Pass Mode")
-                Picker(
-                    "",
-                    selection: Binding(
-                        get: { viewModel.singlePassPreference(forCardIndex: cardIndex) },
-                        set: { viewModel.setSinglePassPreference($0, forCardIndex: cardIndex) }
-                    )
-                ) {
-                    Text("Auto").tag(SinglePassPreference.auto)
-                    Text("Force").tag(SinglePassPreference.force)
-                    Text("Off").tag(SinglePassPreference.disable)
-                }
-                .pickerStyle(.segmented)
-                .disabled(viewModel.isTranslationLocked(forCardIndex: cardIndex) || currentCard.translateState.isTranslating)
 
-                Text("Sends all cues in a single LLM request when the provider has ≥500K-token context. Eliminates batch-boundary continuity drift.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
-            }
-
-            pickerSectionLabel("Provider")
-            Picker(
-                "",
-                selection: Binding(
-                    get: { currentCard.translateState.providerPresetID },
-                    set: { newProvider in
-                        viewModel.translationProviderChanged(forCardIndex: cardIndex, presetID: newProvider)
-                    }
-                )
-            ) {
-                ForEach(viewModel.providerPresets) { preset in
-                    Text(preset.displayName).tag(preset.id)
-                }
-            }
-            .pickerStyle(.menu)
-            .disabled(viewModel.isTranslationLocked(forCardIndex: cardIndex) || currentCard.translateState.isTranslating)
-
+            pickerSectionLabel("Translation Instructions (Optional)")
             TextField(
-                "Episode / scene context (for example: police interrogation, sitcom argument, historical court scene)",
+                "Scene context or instructions (e.g. police interrogation, sitcom argument, preserve honorifics)",
                 text: Binding(
-                    get: { currentCard.translateState.episodeContext },
-                    set: { viewModel.cards[cardIndex].translateState.episodeContext = $0 }
-                )
+                    get: { currentCard.translateState.instructions },
+                    set: { viewModel.cards[cardIndex].translateState.instructions = $0 }
+                ),
+                axis: .vertical
             )
             .textFieldStyle(.roundedBorder)
             .font(.caption)
+            .lineLimit(2...4)
             .disabled(viewModel.isTranslationLocked(forCardIndex: cardIndex) || currentCard.translateState.isTranslating)
 
-            Text("Optional. Add scene context to help the translator choose the right tone, genre vocabulary, and character voice.")
+            Text("Optional. Describe the scene or add style guidance. Applies to this card only.")
                 .font(.caption2)
                 .foregroundStyle(.secondary)
                 .fixedSize(horizontal: false, vertical: true)
+
+            if let tokens = contextTokens {
+                let cueCount = max(1, currentCard.translateState.totalCueCount > 0
+                    ? currentCard.translateState.totalCueCount
+                    : currentCard.loadedDocument?.cues.count ?? 0)
+                let estTokens = cueCount * 60
+                let fraction = min(1.0, Double(estTokens) / Double(tokens))
+                VStack(alignment: .leading, spacing: StudioSpacing.xs) {
+                    HStack {
+                        pickerSectionLabel("Context Budget")
+                        Spacer()
+                        if fraction < 0.8 {
+                            Text("Single-pass eligible")
+                                .font(.caption2)
+                                .foregroundStyle(.green)
+                        }
+                    }
+                    ProgressView(value: fraction)
+                        .scaleEffect(y: 0.7)
+                    Text("~\(max(1, estTokens / 1000))K / \(tokens / 1000)K tokens (estimate)")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
         }
     }
 
@@ -573,6 +563,12 @@ struct SubtitleWorkspaceView: View {
         }
         .buttonStyle(.plain)
         .foregroundStyle(StudioColor.textSecondary)
+    }
+
+    private var languageSection: some View {
+        workspaceSection(title: "Language", subtitle: "The language this workspace represents.") {
+            languagePicker
+        }
     }
 
     private var languagePicker: some View {
