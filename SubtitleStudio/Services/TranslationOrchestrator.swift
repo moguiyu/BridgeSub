@@ -11,17 +11,14 @@ actor TranslationOrchestrator {
         let maxRetries: Int
         let maxPromptCharacters: Int
         let customInstructions: String
-        let episodeContext: String
+        let instructions: String
         let mediaTitle: String?
         let mediaYear: Int?
-        let keepNames: Bool
-        let keepLocations: Bool
-        let keepBrands: Bool
         let maxLinesPerCue: Int
         let targetCharactersPerLine: Int
-        let qualityProfile: TranslationQualityProfile
+        let contentType: ContentType
         let passStrategy: TranslationPassStrategy
-        let strictness: TranslationStrictness
+        let temperature: Double
         let referenceSelection: ReferenceSubtitleSelection?
         let referenceDocument: SubtitleDocument?
         let referenceOverrideConfidenceThreshold: Double
@@ -34,17 +31,14 @@ actor TranslationOrchestrator {
             maxRetries: Int,
             maxPromptCharacters: Int,
             customInstructions: String,
-            episodeContext: String,
+            instructions: String,
             mediaTitle: String? = nil,
             mediaYear: Int? = nil,
-            keepNames: Bool,
-            keepLocations: Bool,
-            keepBrands: Bool,
             maxLinesPerCue: Int,
             targetCharactersPerLine: Int,
-            qualityProfile: TranslationQualityProfile,
+            contentType: ContentType,
             passStrategy: TranslationPassStrategy,
-            strictness: TranslationStrictness,
+            temperature: Double = 0.2,
             referenceSelection: ReferenceSubtitleSelection?,
             referenceDocument: SubtitleDocument?,
             referenceOverrideConfidenceThreshold: Double,
@@ -56,17 +50,14 @@ actor TranslationOrchestrator {
             self.maxRetries = maxRetries
             self.maxPromptCharacters = maxPromptCharacters
             self.customInstructions = customInstructions
-            self.episodeContext = episodeContext
+            self.instructions = instructions
             self.mediaTitle = mediaTitle
             self.mediaYear = mediaYear
-            self.keepNames = keepNames
-            self.keepLocations = keepLocations
-            self.keepBrands = keepBrands
             self.maxLinesPerCue = maxLinesPerCue
             self.targetCharactersPerLine = targetCharactersPerLine
-            self.qualityProfile = qualityProfile
+            self.contentType = contentType
             self.passStrategy = passStrategy
-            self.strictness = strictness
+            self.temperature = temperature
             self.referenceSelection = referenceSelection
             self.referenceDocument = referenceDocument
             self.referenceOverrideConfidenceThreshold = referenceOverrideConfidenceThreshold
@@ -80,17 +71,14 @@ actor TranslationOrchestrator {
             maxRetries: 2,
             maxPromptCharacters: 6_500,
             customInstructions: ProviderSettings.defaultTranslationCustomInstructions,
-            episodeContext: "",
+            instructions: "",
             mediaTitle: nil,
             mediaYear: nil,
-            keepNames: true,
-            keepLocations: true,
-            keepBrands: false,
             maxLinesPerCue: 2,
             targetCharactersPerLine: 42,
-            qualityProfile: .general,
+            contentType: .drama,
             passStrategy: .qualityFirst,
-            strictness: .balanced,
+            temperature: 0.2,
             referenceSelection: nil,
             referenceDocument: nil,
             referenceOverrideConfidenceThreshold: ProviderSettings().referenceOverrideConfidenceThreshold,
@@ -166,7 +154,7 @@ actor TranslationOrchestrator {
         )
         let brief = buildTranslationBrief(
             cues: cues,
-            episodeContext: config.episodeContext,
+            instructions: config.instructions,
             mediaTitle: config.mediaTitle,
             mediaYear: config.mediaYear
         )
@@ -617,27 +605,10 @@ actor TranslationOrchestrator {
         lines.append("- Prefer no more than \(config.maxLinesPerCue) lines per cue when possible.")
         lines.append("- Keep line lengths comfortable for subtitle reading.")
 
-        let preservationRules = [
-            config.keepNames ? "names" : nil,
-            config.keepLocations ? "locations" : nil,
-            config.keepBrands ? "brands" : nil
-        ]
-        .compactMap { $0 }
-
-        if !preservationRules.isEmpty {
-            lines.append("- Preserve these exactly when they appear unless critique explicitly approves a change: \(preservationRules.joined(separator: ", ")).")
-        }
-
-        if !promptPolicy.profileNotes.isEmpty {
+        if !promptPolicy.contentNotes.isEmpty {
             lines.append("")
             lines.append("STYLE PROFILE:")
-            lines.append(contentsOf: promptPolicy.profileNotes.map { "- \($0)" })
-        }
-
-        if !promptPolicy.strictnessNotes.isEmpty {
-            lines.append("")
-            lines.append("PRIORITY BIAS:")
-            lines.append(contentsOf: promptPolicy.strictnessNotes.map { "- \($0)" })
+            lines.append(contentsOf: promptPolicy.contentNotes.map { "- \($0)" })
         }
 
         if !brief.registerSummary.isEmpty {
@@ -715,7 +686,7 @@ actor TranslationOrchestrator {
             if let year = brief.mediaYear {
                 context += " (\(year))"
             }
-            context += " · \(config.qualityProfile.rawValue) profile"
+            context += " · \(config.contentType.title)"
             lines.append("")
             lines.append(context)
         }
@@ -726,10 +697,10 @@ actor TranslationOrchestrator {
             lines.append(preamble)
         }
 
-        if !brief.episodeContext.isEmpty {
+        if !brief.instructions.isEmpty {
             lines.append("")
             lines.append("SCENE CONTEXT:")
-            lines.append(brief.episodeContext)
+            lines.append(brief.instructions)
         }
 
         if !brief.recurringTerms.isEmpty {
@@ -924,13 +895,13 @@ actor TranslationOrchestrator {
 
     private func buildTranslationBrief(
         cues: [SubtitleCue],
-        episodeContext: String,
+        instructions: String,
         mediaTitle: String?,
         mediaYear: Int?
     ) -> TranslationBrief {
         let trimmedTitle = mediaTitle?.trimmingCharacters(in: .whitespacesAndNewlines)
         return TranslationBrief(
-            episodeContext: episodeContext.trimmingCharacters(in: .whitespacesAndNewlines),
+            instructions: instructions.trimmingCharacters(in: .whitespacesAndNewlines),
             recurringTerms: extractRecurringTerms(from: cues),
             registerSummary: summarizeRegister(for: cues),
             mediaTitle: (trimmedTitle?.isEmpty == false) ? trimmedTitle : nil,
@@ -944,51 +915,47 @@ actor TranslationOrchestrator {
             "Use natural, conversational \(targetLanguage.displayName) suitable for subtitles.",
             "Preserve intent, humor, tone, and implied meaning instead of translating word by word.",
             "Add punctuation for rhythm and pacing when it improves readability.",
-            "Keep proper nouns in original form unless the prompt explicitly approves localization.",
+            "Preserve names, locations, and brand names exactly unless the prompt explicitly approves localization.",
             "Maintain terminology consistency across the batch."
         ]
 
-        var profileNotes: [String]
-        switch config.qualityProfile {
-        case .general:
-            profileNotes = [
+        var contentNotes: [String]
+        switch config.contentType {
+        case .drama:
+            contentNotes = [
                 "Prefer natural spoken subtitle phrasing over literal syntax.",
-                "Keep exposition light and screen-readable."
+                "Balance fidelity with subtitle readability.",
+                "Compress only when it preserves the meaning and tone."
             ]
         case .comedy:
-            profileNotes = [
+            contentNotes = [
                 "Protect punchlines, irony, and comic timing.",
-                "Favor natural phrasing that lands the joke in the target language."
+                "Favor natural phrasing that lands the joke in the target language.",
+                "Do not over-literalize; a weaker pun is better than a broken one."
             ]
-        case .crimeThriller:
-            profileNotes = [
+        case .actionThriller:
+            contentNotes = [
                 "Keep tension, slang, and underworld register intact.",
-                "Prefer terse, confident dialogue over explanatory wording."
+                "Prefer terse, confident dialogue over explanatory wording.",
+                "Short cues for fast cuts; drop filler that slows pacing."
+            ]
+        case .documentary:
+            contentNotes = [
+                "Formal register; preserve speaker titles and technical terms.",
+                "Prioritize semantic fidelity and subtext.",
+                "Do not simplify away important facts or relationships."
+            ]
+        case .childrens:
+            contentNotes = [
+                "Short sentences, simple vocabulary, warm and direct tone.",
+                "Avoid idioms or culture-specific references the audience won't know.",
+                "Prefer subtitle readability over density."
             ]
         }
 
         if targetLanguage.code == LanguageOption.zhHans.code {
-            profileNotes.append("Avoid translationese in Simplified Chinese; prefer concise colloquial subtitle phrasing.")
+            contentNotes.append("Avoid translationese in Simplified Chinese; prefer concise colloquial subtitle phrasing.")
             hardRules.append("Do not leave unnecessary Latin-script fragments in Simplified Chinese output.")
-        }
-
-        let strictnessNotes: [String]
-        switch config.strictness {
-        case .balanced:
-            strictnessNotes = [
-                "Balance fidelity with subtitle readability.",
-                "Compress only when it preserves the meaning and tone."
-            ]
-        case .highFidelity:
-            strictnessNotes = [
-                "Prioritize semantic fidelity and subtext.",
-                "Do not simplify away important intent, relationships, or plot clues."
-            ]
-        case .subtitleFit:
-            strictnessNotes = [
-                "Prioritize subtitle readability and timing fit.",
-                "Prefer shorter, natural lines when wording is too dense for on-screen reading."
-            ]
         }
 
         let advancedInstructions = config.customInstructions.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -996,15 +963,17 @@ actor TranslationOrchestrator {
         return TranslationPromptPolicy(
             baseRole: baseRole,
             hardRules: hardRules,
-            profileNotes: profileNotes,
-            strictnessNotes: strictnessNotes,
+            contentNotes: contentNotes,
             advancedInstructions: advancedInstructions
         )
     }
 
+    private static let recurringTermRegex = try? NSRegularExpression(
+        pattern: #"\b[A-Z][A-Za-z0-9']+(?:\s+[A-Z][A-Za-z0-9']+){0,2}\b"#
+    )
+
     private func extractRecurringTerms(from cues: [SubtitleCue]) -> [String] {
-        let pattern = #"\b[A-Z][A-Za-z0-9']+(?:\s+[A-Z][A-Za-z0-9']+){0,2}\b"#
-        guard let regex = try? NSRegularExpression(pattern: pattern) else { return [] }
+        guard let regex = Self.recurringTermRegex else { return [] }
 
         var counts: [String: Int] = [:]
         for cue in cues {
@@ -1032,13 +1001,18 @@ actor TranslationOrchestrator {
     private func summarizeRegister(for cues: [SubtitleCue]) -> String {
         guard !cues.isEmpty else { return "" }
 
-        let texts = cues.map(\.plainText)
-        let avgWordCount = texts
-            .map { $0.split(whereSeparator: \.isWhitespace).count }
-            .reduce(0, +) / max(texts.count, 1)
-        let exclamationCount = texts.filter { $0.contains("!") }.count
-        let questionCount = texts.filter { $0.contains("?") }.count
-        let profanityCount = texts.filter { $0.localizedCaseInsensitiveContains("damn") || $0.localizedCaseInsensitiveContains("hell") }.count
+        var totalWords = 0
+        var exclamationCount = 0
+        var questionCount = 0
+        var profanityCount = 0
+        for cue in cues {
+            let text = cue.plainText
+            totalWords += text.split(whereSeparator: \.isWhitespace).count
+            if text.contains("!") { exclamationCount += 1 }
+            if text.contains("?") { questionCount += 1 }
+            if text.localizedCaseInsensitiveContains("damn") || text.localizedCaseInsensitiveContains("hell") { profanityCount += 1 }
+        }
+        let avgWordCount = totalWords / cues.count
 
         var parts: [String] = []
         if avgWordCount <= 4 {
@@ -1046,10 +1020,10 @@ actor TranslationOrchestrator {
         } else {
             parts.append("conversational subtitle dialogue")
         }
-        if exclamationCount > texts.count / 6 {
+        if exclamationCount > cues.count / 6 {
             parts.append("frequent exclamations")
         }
-        if questionCount > texts.count / 6 {
+        if questionCount > cues.count / 6 {
             parts.append("regular questioning exchanges")
         }
         if profanityCount > 0 {

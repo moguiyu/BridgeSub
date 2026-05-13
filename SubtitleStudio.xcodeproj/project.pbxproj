@@ -20,6 +20,7 @@
 		5311DD201B73A4EB2CBB99C1 /* WorkflowInspectorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6C9236E5453D5FBD0C7AC145 /* WorkflowInspectorView.swift */; };
 		57C57A55E5FE3D61D2009437 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8E78AD23646D8A45B1257D2 /* ContentView.swift */; };
 		64D52DB0700AAAF86724B829 /* MKVEmbeddingService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5A4702B9547C51CF2902B975 /* MKVEmbeddingService.swift */; };
+		6E1F3B4BFE489B5DB0586805 /* TranslationLogger.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92540AB94384ADC92A1CD931 /* TranslationLogger.swift */; };
 		7348C4830F7D0EFC49260162 /* SubtitleWorkspaceView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 795F4437595027129463AE2B /* SubtitleWorkspaceView.swift */; };
 		78CC3E550D8B9D954C84B164 /* SubtitleInventoryService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4C6419FA41F966E25E9A57CC /* SubtitleInventoryService.swift */; };
 		84A3C07DB4472A48A5CC1CB9 /* PipelineEvents.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9E09C699F2279E1B638E26A9 /* PipelineEvents.swift */; };
@@ -60,6 +61,7 @@
 		795F4437595027129463AE2B /* SubtitleWorkspaceView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SubtitleWorkspaceView.swift; sourceTree = "<group>"; };
 		846739179ED3AD85648DDF31 /* MediaToolRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaToolRegistry.swift; sourceTree = "<group>"; };
 		88A8461E3B9D02307EB47025 /* ServiceProtocols.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServiceProtocols.swift; sourceTree = "<group>"; };
+		92540AB94384ADC92A1CD931 /* TranslationLogger.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TranslationLogger.swift; sourceTree = "<group>"; };
 		94515D110509028343755D2F /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		94716DDD29E0958608C7A8C3 /* SileroVADService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SileroVADService.swift; sourceTree = "<group>"; };
 		99AFB4AF1EA04320D3D37827 /* CueTableView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CueTableView.swift; sourceTree = "<group>"; };
@@ -161,6 +163,7 @@
 		ABE7F3C0C717C346D0E96131 /* Translation */ = {
 			isa = PBXGroup;
 			children = (
+				92540AB94384ADC92A1CD931 /* TranslationLogger.swift */,
 				A5B64B46D02288CF64B16C1B /* TranslationProviders.swift */,
 			);
 			path = Translation;
@@ -353,6 +356,7 @@
 				E88EF4E032D32B105196160A /* SubtitleQualityService.swift in Sources */,
 				BB865A30FDDA2FF34D069BEC /* SubtitleStudioApp.swift in Sources */,
 				7348C4830F7D0EFC49260162 /* SubtitleWorkspaceView.swift in Sources */,
+				6E1F3B4BFE489B5DB0586805 /* TranslationLogger.swift in Sources */,
 				C04787CB5FEC9C544BBAA1D5 /* TranslationOrchestrator.swift in Sources */,
 				885FE9B34D6A04B22C1C57DB /* TranslationProviders.swift in Sources */,
 				5311DD201B73A4EB2CBB99C1 /* WorkflowInspectorView.swift in Sources */,

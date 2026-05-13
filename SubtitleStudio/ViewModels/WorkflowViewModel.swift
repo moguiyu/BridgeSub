@@ -53,9 +53,6 @@ final class WorkflowViewModel {
     var isProcessing = false
     var processingLabel = ""
     var processingProgress: Double = 0
-    var spotCheckEnabled = false
-    var spotCheckSampleSize = 10
-    var selectedProcessingOption: SubtitleProcessingOption = .useAvailable
     var statusLines: [WorkflowLogEntry] = [
         WorkflowLogEntry(message: "Ready.", kind: .info)
     ]
@@ -624,15 +621,6 @@ final class WorkflowViewModel {
         cards[cardIndex].translateState.mediaYear = year
     }
 
-    func singlePassPreference(forCardIndex cardIndex: Int) -> SinglePassPreference {
-        cards.indices.contains(cardIndex) ? cards[cardIndex].translateState.singlePassPreference : .auto
-    }
-
-    func setSinglePassPreference(_ pref: SinglePassPreference, forCardIndex cardIndex: Int) {
-        guard cards.indices.contains(cardIndex) else { return }
-        cards[cardIndex].translateState.singlePassPreference = pref
-    }
-
     func environmentContextWindowTokens(forCardIndex cardIndex: Int) -> Int? {
         guard cards.indices.contains(cardIndex) else { return nil }
         let providerID = cards[cardIndex].translateState.providerPresetID
@@ -979,10 +967,6 @@ final class WorkflowViewModel {
         return []
     }
 
-    var visiblePreviewCues: [BilingualCue] {
-        previewCues
-    }
-
     var previewTotalCueCount: Int {
         if previewState.totalCueCount > 0 {
             return previewState.totalCueCount
@@ -1117,15 +1101,6 @@ final class WorkflowViewModel {
 
     var orphanedSecondaryCount: Int {
         qualityReport?.alignmentReport.orphanedTargetCueIDs.count ?? 0
-    }
-
-    var secondaryCoverageAfterInjection: Double {
-        guard let report = qualityReport else { return 0 }
-        let alignment = report.alignmentReport
-        let matched = alignment.matches.filter { $0.targetCueID != nil }.count
-        let orphaned = alignment.orphanedTargetCueIDs.count
-        let total = matched + orphaned
-        return total > 0 ? Double(matched + orphaned) / Double(total) : 1.0
     }
 
     var showVADReminder: Bool {
@@ -1326,7 +1301,6 @@ final class WorkflowViewModel {
         cacheKey: String,
         vadResult: VADArbitrationResult? = nil
     ) {
-        // Serve instantly from cache when available
         if let cached = mergedDocumentCache[cacheKey] {
             mergedDocument = cached
             previewState.fullCues = cached.cues
@@ -1347,7 +1321,6 @@ final class WorkflowViewModel {
         mergePreviewTask = Task { [weak self] in
             guard let self else { return }
 
-            // pipeline.run() is actor-isolated — call with await from this async context
             let pipeline = await self.environment.pipeline
             let outputFormat = await self.exportFormat
             let (mergeStream, qualityStream) = await pipeline.run(
@@ -1627,28 +1600,27 @@ final class WorkflowViewModel {
                     let dualReference = self.dualReferenceCache[cardIndex]
                     let mediaTitle = self.cards[cardIndex].translateState.mediaTitle
                     let trimmedTitle = mediaTitle.trimmingCharacters(in: .whitespacesAndNewlines)
+                    let ctxTokens = self.environmentContextWindowTokens(forCardIndex: cardIndex)
+                    let autoBatchSize = ctxTokens.map { max(10, min(200, ($0 * 6 / 10) / 60)) } ?? 50
                     return TranslationOrchestrator.Config(
-                        batchSize: effectiveSettings.translationBatchSize,
+                        batchSize: autoBatchSize,
                         maxRetries: 2,
                         maxPromptCharacters: 6_500,
                         customInstructions: effectiveSettings.translationCustomInstructions,
-                        episodeContext: self.cards[cardIndex].translateState.episodeContext,
+                        instructions: self.cards[cardIndex].translateState.instructions,
                         mediaTitle: trimmedTitle.isEmpty ? nil : trimmedTitle,
                         mediaYear: self.cards[cardIndex].translateState.mediaYear,
-                        keepNames: effectiveSettings.translationKeepNames,
-                        keepLocations: effectiveSettings.translationKeepLocations,
-                        keepBrands: effectiveSettings.translationKeepBrands,
                         maxLinesPerCue: 2,
                         targetCharactersPerLine: 42,
-                        qualityProfile: effectiveSettings.translationQualityProfile,
+                        contentType: effectiveSettings.translationContentType,
                         passStrategy: effectiveSettings.translationPassStrategy,
-                        strictness: effectiveSettings.translationStrictness,
+                        temperature: effectiveSettings.translationTemperature,
                         referenceSelection: referenceResolution.selection,
                         referenceDocument: referenceResolution.document,
                         referenceOverrideConfidenceThreshold: effectiveSettings.referenceOverrideConfidenceThreshold,
                         dualReference: dualReference,
                         providerCapabilities: translationService.capabilities,
-                        singlePassOverride: self.cards[cardIndex].translateState.singlePassPreference
+                        singlePassOverride: effectiveSettings.translationSinglePassPreference
                     )
                 }
 
@@ -1933,10 +1905,7 @@ final class WorkflowViewModel {
     }
 
     private func deduplicatedSignals(_ signals: [CandidateQualitySignal]) -> [CandidateQualitySignal] {
-        var seen: Set<CandidateQualitySignal.Kind> = []
-        return signals.filter { signal in
-            seen.insert(signal.kind).inserted
-        }
+        signals.uniqued(by: \.kind)
     }
 
     private func updateInventory(with candidate: SubtitleCandidate) {
@@ -2117,17 +2086,6 @@ final class WorkflowViewModel {
 
     private var currentMergeCacheKey: String {
         "\(cards[0].selectedCandidateID ?? "nil")-\(cards[1].selectedCandidateID ?? "nil")"
-    }
-}
-
-private extension SubtitleFormatKind {
-    var allowedContentTypes: [UTType] {
-        switch self {
-        case .srt, .ass, .vtt:
-            return [.plainText]
-        case .unknown:
-            return [.data]
-        }
     }
 }
 

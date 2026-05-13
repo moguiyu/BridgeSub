@@ -135,7 +135,7 @@ struct SettingsView: View {
                         if editingPresetDescriptor.supportsOpenAICompatibleToggle {
                             Toggle(
                                 "Use OpenAI-compatible endpoint (/v1/chat/completions)",
-                                isOn: presetBoolBinding(\.useOpenAICompatibleEndpoint)
+                                isOn: presetBinding(\.useOpenAICompatibleEndpoint)
                             )
                             .font(.caption)
                         }
@@ -175,58 +175,60 @@ struct SettingsView: View {
     private var translationSettingsTab: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 18) {
-                settingsCard("Translation Behavior", subtitle: "Tune prompt behavior, QA strictness, and batching for subtitle generation.") {
+                settingsCard("Translation Behavior", subtitle: "Set the content type and style for subtitle generation.") {
                     VStack(alignment: .leading, spacing: 14) {
-                        settingsGroup("Strategy", subtitle: "Choose how strongly the translator prioritizes quality review, fidelity, and subtitle readability.") {
-                            Picker("Quality Profile", selection: $providerSettings.translationQualityProfile) {
-                                ForEach(TranslationQualityProfile.allCases) { profile in
-                                    Text(profile.title).tag(profile)
+                        settingsGroup("Content Type", subtitle: "Sets the tone and style the translator uses for this content.") {
+                            Picker("Content Type", selection: $providerSettings.translationContentType) {
+                                ForEach(ContentType.allCases) { ct in
+                                    Text(ct.title).tag(ct)
                                 }
                             }
-
-                            Picker("Pass Strategy", selection: $providerSettings.translationPassStrategy) {
-                                ForEach(TranslationPassStrategy.allCases) { strategy in
-                                    Text(strategy.title).tag(strategy)
-                                }
-                            }
-
-                            Picker("Strictness", selection: $providerSettings.translationStrictness) {
-                                ForEach(TranslationStrictness.allCases) { strictness in
-                                    Text(strictness.title).tag(strictness)
-                                }
-                            }
+                            .pickerStyle(.menu)
                         }
 
-                        settingsGroup("Batching And QA", subtitle: "Adjust how much subtitle text is sent per request and how cautious QA assist should be.") {
-                            HStack {
-                                Text("Batch Size")
-                                Spacer()
-                                Stepper("\(providerSettings.translationBatchSize)", value: $providerSettings.translationBatchSize, in: 1...200)
-                                    .labelsHidden()
-                                TextField("", value: $providerSettings.translationBatchSize, format: .number)
-                                    .textFieldStyle(.roundedBorder)
-                                    .frame(width: 72)
-                            }
+                        DisclosureGroup("Advanced") {
+                            VStack(alignment: .leading, spacing: 14) {
+                                Picker("Pass Strategy", selection: $providerSettings.translationPassStrategy) {
+                                    ForEach(TranslationPassStrategy.allCases) { strategy in
+                                        Text(strategy.title).tag(strategy)
+                                    }
+                                }
 
-                            VStack(alignment: .leading, spacing: 6) {
-                                HStack {
-                                    Text("Reference Override Confidence")
-                                    Spacer()
-                                    Text("\(Int((providerSettings.referenceOverrideConfidenceThreshold * 100).rounded()))%")
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Text("Reference Override Confidence")
+                                        Spacer()
+                                        Text("\(Int((providerSettings.referenceOverrideConfidenceThreshold * 100).rounded()))%")
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Slider(value: $providerSettings.referenceOverrideConfidenceThreshold, in: 0.5...0.99, step: 0.01)
+                                    Text("Higher values make the selected reference subtitle less likely to override the original translation.")
+                                        .font(.caption2)
                                         .foregroundStyle(.secondary)
                                 }
-                                Slider(value: $providerSettings.referenceOverrideConfidenceThreshold, in: 0.5...0.99, step: 0.01)
-                                Text("Higher values make the selected reference subtitle less likely to override the original subtitle.")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
 
-                        settingsGroup("Preservation", subtitle: "Protect named entities when the source wording should usually stay unchanged.") {
-                            Toggle("Keep names unchanged when possible", isOn: $providerSettings.translationKeepNames)
-                            Toggle("Keep locations unchanged when possible", isOn: $providerSettings.translationKeepLocations)
-                            Toggle("Keep brands unchanged when possible", isOn: $providerSettings.translationKeepBrands)
+                                Picker("Single-Pass Mode", selection: $providerSettings.translationSinglePassPreference) {
+                                    Text("Auto").tag(SinglePassPreference.auto)
+                                    Text("Force").tag(SinglePassPreference.force)
+                                    Text("Off").tag(SinglePassPreference.disable)
+                                }
+
+                                VStack(alignment: .leading, spacing: 6) {
+                                    HStack {
+                                        Text("Temperature")
+                                        Spacer()
+                                        Text(String(format: "%.2f", providerSettings.translationTemperature))
+                                            .foregroundStyle(.secondary)
+                                    }
+                                    Slider(value: $providerSettings.translationTemperature, in: 0.1...0.3, step: 0.01)
+                                    Text("Lower = more consistent output. Higher = slightly more creative phrasing.")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .padding(.top, 8)
                         }
+                        .padding(.vertical, 4)
 
                         settingsGroup("Custom Instructions", subtitle: "Add optional expert guidance that will be appended to the generated translation system prompt.") {
                             TextEditor(text: $providerSettings.translationCustomInstructions)
@@ -337,6 +339,14 @@ struct SettingsView: View {
     }
 
     private var providerValidationMessage: String {
+        providerValidationError ?? "Preset is ready for translation cards."
+    }
+
+    private var providerValidationColor: Color {
+        providerValidationError == nil ? .secondary : .orange
+    }
+
+    private var providerValidationError: String? {
         let configuration = editingPresetConfiguration
         if configuration.baseURL.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "Base URL is required."
@@ -351,11 +361,7 @@ struct SettingsView: View {
            currentProviderAPIKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
             return "Save an API key for this preset before using it."
         }
-        return "Preset is ready for translation cards."
-    }
-
-    private var providerValidationColor: Color {
-        providerValidationMessage == "Preset is ready for translation cards." ? .secondary : .orange
+        return nil
     }
 
     private var versionLabel: String {
@@ -419,18 +425,7 @@ struct SettingsView: View {
         }
     }
 
-    private func presetBinding(_ keyPath: WritableKeyPath<TranslationProviderPresetConfiguration, String>) -> Binding<String> {
-        Binding(
-            get: { editingPresetConfiguration[keyPath: keyPath] },
-            set: { newValue in
-                providerSettings.updatePresetConfiguration(for: editingPresetID) { configuration in
-                    configuration[keyPath: keyPath] = newValue
-                }
-            }
-        )
-    }
-
-    private func presetBoolBinding(_ keyPath: WritableKeyPath<TranslationProviderPresetConfiguration, Bool>) -> Binding<Bool> {
+    private func presetBinding<V>(_ keyPath: WritableKeyPath<TranslationProviderPresetConfiguration, V>) -> Binding<V> {
         Binding(
             get: { editingPresetConfiguration[keyPath: keyPath] },
             set: { newValue in

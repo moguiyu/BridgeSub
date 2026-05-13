@@ -189,7 +189,7 @@ struct ContentView: View {
 
     private var previewStatus: String {
         if viewModel.previewTotalCueCount > 0 {
-            return "Preview \(viewModel.visiblePreviewCues.count)/\(viewModel.previewTotalCueCount) cues"
+            return "Preview \(viewModel.previewCues.count)/\(viewModel.previewTotalCueCount) cues"
         }
         return viewModel.previewPlaceholderMessage
     }
